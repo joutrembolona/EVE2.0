@@ -13,6 +13,8 @@ import { ProgressBar } from '@/components/ui/Progress';
 import { useStore } from '@/store';
 import { getGreeting, getStreak, getToday, getConsistency } from '@/lib/utils';
 import { getRandomVerse, getRandomQuote } from '@/data/verses';
+import { getTimePhrase } from '@/lib/contextualPhrases';
+import { MissionPanel } from '@/components/MissionPanel';
 
 const stagger = {
   hidden: { opacity: 0 },
@@ -30,6 +32,7 @@ export function HomeModule() {
   const [date, setDate] = useState('');
   const [verse, setVerse] = useState(getRandomVerse());
   const [quote, setQuote] = useState(getRandomQuote());
+  const [contextPhrase, setContextPhrase] = useState(getTimePhrase());
 
   useEffect(() => {
     const update = () => {
@@ -127,6 +130,16 @@ export function HomeModule() {
         </motion.div>
       </motion.div>
 
+      {/* Contextual phrase */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.25, duration: 0.5 }}
+        className="text-sm text-muted italic tracking-wide"
+      >
+        {contextPhrase}
+      </motion.p>
+
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Daily progress */}
@@ -218,10 +231,10 @@ export function HomeModule() {
             </GlassCard>
           </motion.div>
 
-          {/* Goals & Reading */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Goals & Reading & Mission */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>
-              <GlassCard>
+              <GlassCard className="h-full">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold text-muted-light uppercase tracking-wider">Active Goals</h3>
                   <span className="text-xs text-muted">{activeGoals.length} active</span>
@@ -244,7 +257,7 @@ export function HomeModule() {
             </motion.div>
 
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-              <GlassCard>
+              <GlassCard className="h-full">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-semibold text-muted-light uppercase tracking-wider">Currently Reading</h3>
                   <BookOpen size={14} className="text-muted" />
@@ -267,6 +280,10 @@ export function HomeModule() {
                   )}
                 </div>
               </GlassCard>
+            </motion.div>
+
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }}>
+              <MissionPanel className="h-full" />
             </motion.div>
           </div>
         </div>

@@ -2,6 +2,9 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { EVESettings } from '@/components/SettingsPanel';
+import { defaultSettings } from '@/components/SettingsPanel';
+import type { AmbientSound } from '@/components/focus/AmbientAudio';
 
 // Types
 export type ModuleId = 'home' | 'habits' | 'focus' | 'reading' | 'studies' | 'workout' | 'devotional' | 'goals' | 'journal';
@@ -182,6 +185,20 @@ export interface AppState {
   // Modules config
   modules: { id: ModuleId; name: string; icon: string; visible: boolean }[];
   toggleModuleVisibility: (id: ModuleId) => void;
+
+  // Settings
+  settings: EVESettings;
+  updateSettings: (settings: EVESettings) => void;
+
+  // Command bar
+  commandBarOpen: boolean;
+  setCommandBarOpen: (open: boolean) => void;
+
+  // Focus audio
+  focusAmbientSound: AmbientSound | null;
+  setFocusAmbientSound: (sound: AmbientSound | null) => void;
+  focusVolume: number;
+  setFocusVolume: (volume: number) => void;
 }
 
 const defaultModules = [
@@ -368,6 +385,20 @@ export const useStore = create<AppState>()(
         set((state) => ({
           modules: state.modules.map((m) => (m.id === id ? { ...m, visible: !m.visible } : m)),
         })),
+
+      // Settings
+      settings: defaultSettings,
+      updateSettings: (settings) => set({ settings }),
+
+      // Command bar
+      commandBarOpen: false,
+      setCommandBarOpen: (open) => set({ commandBarOpen: open }),
+
+      // Focus audio
+      focusAmbientSound: null,
+      setFocusAmbientSound: (sound) => set({ focusAmbientSound: sound }),
+      focusVolume: 0.3,
+      setFocusVolume: (volume) => set({ focusVolume: volume }),
     }),
     {
       name: 'eve-storage',

@@ -22,9 +22,9 @@ export function GlassCard({ children, className, hover = false, onClick, padding
       whileHover={hover ? { scale: 1.01, y: -2 } : undefined}
       onClick={onClick}
       className={cn(
-        'glass rounded-2xl',
+        'glass rounded-2xl card-hover-glow',
         paddingMap[padding],
-        hover && 'cursor-pointer transition-shadow hover:glow-accent',
+        hover && 'cursor-pointer',
         onClick && 'cursor-pointer',
         className
       )}

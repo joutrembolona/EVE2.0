@@ -7,15 +7,21 @@ import {
 } from 'lucide-react';
 import { useStore, ModuleId } from '@/store';
 import { cn } from '@/lib/utils';
+import { EVEPresence } from './EVEPresence';
 
 const iconMap: Record<string, React.ElementType> = {
   LayoutDashboard, Target, Timer, BookOpen, GraduationCap,
   Dumbbell, Heart, Flag, PenTool,
 };
 
-export function Sidebar() {
-  const { activeModule, setActiveModule, sidebarCollapsed, toggleSidebar, modules } = useStore();
+interface SidebarProps {
+  onOpenSettings?: () => void;
+}
+
+export function Sidebar({ onOpenSettings }: SidebarProps) {
+  const { activeModule, setActiveModule, sidebarCollapsed, toggleSidebar, modules, focusAmbientSound } = useStore();
   const visibleModules = modules.filter((m) => m.visible);
+  const isFocusing = activeModule === 'focus' && !!focusAmbientSound;
 
   return (
     <motion.aside
@@ -90,8 +96,18 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Collapse toggle */}
-      <div className="p-3 border-t border-border">
+      {/* EVE Presence & Collapse */}
+      <div className="p-3 border-t border-border space-y-2">
+        {/* EVE Presence indicator */}
+        {!sidebarCollapsed && (
+          <div className="flex items-center gap-2 px-2 py-1.5">
+            <EVEPresence active={!isFocusing} size="sm" />
+            <span className="text-[10px] text-muted tracking-wider">
+              {isFocusing ? 'Focus Mode' : 'EVE Online'}
+            </span>
+          </div>
+        )}
+
         <button
           onClick={toggleSidebar}
           className="w-full flex items-center justify-center py-2 rounded-xl text-muted hover:text-foreground hover:bg-surface-2 transition-colors"
