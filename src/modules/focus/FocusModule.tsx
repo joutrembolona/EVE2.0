@@ -5,12 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import {
   Play, Pause, RotateCcw, Timer, Clock, Flame,
-  Maximize2, Minimize2, Volume2, VolumeX,
+  Maximize2, Minimize2,
 } from 'lucide-react';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { Button } from '@/components/ui/Button';
 import { AmbientAudio } from '@/components/focus/AmbientAudio';
+import { EVEPresence } from '@/components/EVEPresence';
 import { useStore } from '@/store';
 import { getToday, formatMinutes, cn } from '@/lib/utils';
 import { getActivityPhrase } from '@/lib/contextualPhrases';
@@ -95,16 +96,16 @@ export function FocusModule() {
   const totalSessions = focusSessions.length;
   const totalMinutes = focusSessions.reduce((sum, s) => sum + Math.round(s.duration / 60), 0);
 
-  // Fullscreen mode
+  // Fullscreen mode — cinematic deep-focus
   if (isFullscreen) {
     return (
       <div className="fixed inset-0 z-[60] bg-background flex flex-col items-center justify-center">
-        {/* Ambient background */}
-        <div className="absolute inset-0">
+        {/* Ambient glow */}
+        <div className="absolute inset-0 pointer-events-none">
           <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-10"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
             style={{
-              background: `radial-gradient(circle, ${isRunning ? 'rgba(34,197,94,0.15)' : 'rgba(59,130,246,0.15)'} 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${isRunning ? 'rgba(74,158,255,0.06)' : 'rgba(74,158,255,0.03)'} 0%, transparent 70%)`,
             }}
           />
         </div>
@@ -112,10 +113,20 @@ export function FocusModule() {
         {/* Exit button */}
         <button
           onClick={() => setIsFullscreen(false)}
-          className="absolute top-6 right-6 p-2 rounded-lg bg-surface-2 text-muted-light hover:text-foreground transition-colors z-10"
+          className="absolute top-6 right-6 p-2 rounded-lg text-muted hover:text-foreground transition-colors z-10"
         >
-          <Minimize2 size={18} />
+          <Minimize2 size={16} />
         </button>
+
+        {/* EVE Presence */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="absolute top-6 left-6 z-10"
+        >
+          <EVEPresence size="sm" active={isRunning} />
+        </motion.div>
 
         {/* Timer */}
         <motion.div
@@ -126,42 +137,36 @@ export function FocusModule() {
         >
           <ProgressRing
             progress={progress}
-            size={320}
-            strokeWidth={8}
-            color={isRunning ? '#22c55e' : '#3b82f6'}
+            size={300}
+            strokeWidth={6}
+            color={isRunning ? 'rgba(74,158,255,0.8)' : 'rgba(74,158,255,0.4)'}
           >
             <div className="text-center">
-              <div className="text-6xl font-mono font-light tracking-tight text-foreground">
+              <div
+                className="text-6xl font-extralight tracking-tight text-foreground"
+                style={{ fontFamily: 'var(--font-mono)' }}
+              >
                 {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
               </div>
-              {isRunning && <p className="text-xs text-success mt-2 animate-pulse">Focusing...</p>}
-              {!isRunning && remaining === 0 && <p className="text-xs text-gold mt-2">Session complete!</p>}
+              {isRunning && <p className="text-xs text-accent/60 mt-2">Focusing...</p>}
+              {!isRunning && remaining === 0 && <p className="text-xs text-gold mt-2">Complete</p>}
             </div>
           </ProgressRing>
-
-          {isRunning && (
-            <motion.div
-              className="absolute inset-0 rounded-full"
-              style={{ border: '1px solid rgba(34, 197, 94, 0.2)' }}
-              animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-          )}
         </motion.div>
 
         {/* Label */}
         {label && (
-          <p className="text-sm text-muted-light mt-6 z-10">{label}</p>
+          <p className="text-sm text-muted-light mt-6 z-10 font-light">{label}</p>
         )}
 
-        {/* Motivational phrase */}
+        {/* Phrase */}
         <AnimatePresence>
           {motivationalPhrase && (
             <motion.p
               initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 0.6 }}
+              animate={{ opacity: 0.4 }}
               exit={{ opacity: 0 }}
-              className="text-sm text-muted mt-4 italic z-10"
+              className="text-xs text-muted mt-4 italic z-10"
             >
               {motivationalPhrase}
             </motion.p>
@@ -169,14 +174,14 @@ export function FocusModule() {
         </AnimatePresence>
 
         {/* Controls */}
-        <div className="flex items-center gap-4 mt-8 z-10">
+        <div className="flex items-center gap-6 mt-8 z-10">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleReset}
-            className="w-12 h-12 rounded-full bg-surface-2 text-muted-light hover:text-foreground flex items-center justify-center transition-colors"
+            className="w-10 h-10 rounded-full bg-surface-2 text-muted hover:text-foreground flex items-center justify-center transition-colors"
           >
-            <RotateCcw size={18} />
+            <RotateCcw size={16} />
           </motion.button>
 
           <motion.button
@@ -184,17 +189,18 @@ export function FocusModule() {
             whileTap={{ scale: 0.95 }}
             onClick={handleStart}
             className={cn(
-              'w-16 h-16 rounded-full flex items-center justify-center text-white transition-all',
-              isRunning ? 'bg-danger glow-accent' : 'bg-accent glow-accent'
+              'w-14 h-14 rounded-full flex items-center justify-center text-white transition-all',
+              isRunning ? 'bg-accent/80' : 'bg-accent'
             )}
+            style={{ boxShadow: '0 0 20px rgba(74,158,255,0.2)' }}
           >
-            {isRunning ? <Pause size={24} /> : <Play size={24} className="ml-1" />}
+            {isRunning ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
           </motion.button>
 
-          <div className="w-12" />
+          <div className="w-10" />
         </div>
 
-        {/* Audio controls - bottom corner */}
+        {/* Audio — bottom left */}
         <div className="absolute bottom-6 left-6 z-10">
           <AmbientAudio compact />
         </div>
@@ -204,24 +210,24 @@ export function FocusModule() {
 
   // Normal mode
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
+    <div className="p-6 lg:p-8 space-y-6 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Focus Mode</h1>
-          <p className="text-sm text-muted mt-1">Deep work. Distraction-free.</p>
+          <h1 className="text-xl font-light text-foreground tracking-wide">Focus</h1>
+          <p className="text-xs text-muted mt-1">Deep work environment</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" onClick={() => setShowAudio(!showAudio)} icon={showAudio ? <Volume2 size={16} /> : <VolumeX size={16} />}>
+          <Button variant="ghost" size="sm" onClick={() => setShowAudio(!showAudio)}>
             Audio
           </Button>
-          <Button variant="ghost" onClick={() => setIsFullscreen(true)} icon={<Maximize2 size={16} />}>
+          <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(true)} icon={<Maximize2 size={14} />}>
             Fullscreen
           </Button>
         </div>
       </div>
 
-      {/* Ambient Audio Panel */}
+      {/* Audio Panel */}
       <AnimatePresence>
         {showAudio && (
           <motion.div
@@ -238,7 +244,7 @@ export function FocusModule() {
       </AnimatePresence>
 
       {/* Timer */}
-      <div className="flex flex-col items-center justify-center py-12">
+      <div className="flex flex-col items-center justify-center py-10">
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -247,45 +253,39 @@ export function FocusModule() {
         >
           <ProgressRing
             progress={progress}
-            size={260}
-            strokeWidth={6}
-            color={isRunning ? '#22c55e' : '#3b82f6'}
+            size={240}
+            strokeWidth={4}
+            color={isRunning ? 'rgba(74,158,255,0.8)' : 'rgba(74,158,255,0.4)'}
           >
             <div className="text-center">
-              <div className="text-5xl font-mono font-light tracking-tight text-foreground">
+              <div
+                className="text-5xl font-extralight tracking-tight text-foreground"
+                style={{ fontFamily: 'var(--font-mono)' }}
+              >
                 {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
               </div>
-              {isRunning && <p className="text-xs text-success mt-2 animate-pulse">Focusing...</p>}
-              {!isRunning && remaining === 0 && <p className="text-xs text-gold mt-2">Session complete!</p>}
+              {isRunning && <p className="text-xs text-accent/60 mt-2">Focusing...</p>}
+              {!isRunning && remaining === 0 && <p className="text-xs text-gold mt-2">Complete</p>}
             </div>
           </ProgressRing>
-
-          {isRunning && (
-            <motion.div
-              className="absolute inset-0 rounded-full"
-              style={{ border: '1px solid rgba(34, 197, 94, 0.2)' }}
-              animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            />
-          )}
         </motion.div>
 
-        {/* Motivational phrase */}
+        {/* Phrase */}
         <AnimatePresence>
           {motivationalPhrase && (
             <motion.p
               initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 0.6 }}
+              animate={{ opacity: 0.4 }}
               exit={{ opacity: 0 }}
-              className="text-sm text-muted mt-4 italic"
+              className="text-xs text-muted mt-4 italic"
             >
               {motivationalPhrase}
             </motion.p>
           )}
         </AnimatePresence>
 
-        {/* Label */}
-        <div className="mt-6 w-full max-w-xs">
+        {/* Label input */}
+        <div className="mt-4 w-full max-w-xs">
           <input
             type="text"
             value={label}
@@ -296,16 +296,16 @@ export function FocusModule() {
         </div>
 
         {/* Presets */}
-        <div className="flex gap-2 mt-6">
+        <div className="flex gap-2 mt-5">
           {presets.map((p) => (
             <button
               key={p.label}
               onClick={() => selectPreset(p.seconds)}
               className={cn(
-                'px-4 py-2 rounded-xl text-sm transition-all',
+                'px-4 py-2 rounded-xl text-xs transition-all',
                 duration === p.seconds
-                  ? 'bg-accent text-white'
-                  : 'bg-surface-2 text-muted-light hover:bg-surface-3'
+                  ? 'bg-accent/15 text-accent border border-accent/20'
+                  : 'bg-surface-2 text-muted hover:text-foreground border border-transparent'
               )}
             >
               {p.label}
@@ -314,14 +314,14 @@ export function FocusModule() {
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-4 mt-8">
+        <div className="flex items-center gap-4 mt-6">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleReset}
-            className="w-12 h-12 rounded-full bg-surface-2 text-muted-light hover:text-foreground flex items-center justify-center transition-colors"
+            className="w-10 h-10 rounded-full bg-surface-2 text-muted hover:text-foreground flex items-center justify-center transition-colors"
           >
-            <RotateCcw size={18} />
+            <RotateCcw size={16} />
           </motion.button>
 
           <motion.button
@@ -329,65 +329,49 @@ export function FocusModule() {
             whileTap={{ scale: 0.95 }}
             onClick={handleStart}
             className={cn(
-              'w-16 h-16 rounded-full flex items-center justify-center text-white transition-all',
-              isRunning ? 'bg-danger glow-accent' : 'bg-accent glow-accent'
+              'w-14 h-14 rounded-full flex items-center justify-center text-white transition-all',
+              isRunning ? 'bg-accent/80' : 'bg-accent'
             )}
+            style={{ boxShadow: '0 0 20px rgba(74,158,255,0.2)' }}
           >
-            {isRunning ? <Pause size={24} /> : <Play size={24} className="ml-1" />}
+            {isRunning ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
           </motion.button>
 
-          <div className="w-12" />
+          <div className="w-10" />
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <GlassCard className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center">
-            <Timer size={20} className="text-success" />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-foreground">{formatMinutes(todayMinutes)}</p>
-            <p className="text-xs text-muted">Today</p>
-          </div>
+      <div className="grid grid-cols-3 gap-3">
+        <GlassCard padding="sm" className="text-center">
+          <p className="text-lg font-light text-foreground">{formatMinutes(todayMinutes)}</p>
+          <p className="text-[10px] text-muted mt-1">Today</p>
         </GlassCard>
-
-        <GlassCard className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-accent/10 flex items-center justify-center">
-            <Clock size={20} className="text-accent" />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-foreground">{totalSessions}</p>
-            <p className="text-xs text-muted">Total sessions</p>
-          </div>
+        <GlassCard padding="sm" className="text-center">
+          <p className="text-lg font-light text-foreground">{totalSessions}</p>
+          <p className="text-[10px] text-muted mt-1">Sessions</p>
         </GlassCard>
-
-        <GlassCard className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-gold-dim flex items-center justify-center">
-            <Flame size={20} className="text-gold" />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-foreground">{formatMinutes(totalMinutes)}</p>
-            <p className="text-xs text-muted">All time</p>
-          </div>
+        <GlassCard padding="sm" className="text-center">
+          <p className="text-lg font-light text-foreground">{formatMinutes(totalMinutes)}</p>
+          <p className="text-[10px] text-muted mt-1">All time</p>
         </GlassCard>
       </div>
 
       {/* Recent sessions */}
       {focusSessions.length > 0 && (
         <GlassCard>
-          <h3 className="text-sm font-semibold text-muted-light uppercase tracking-wider mb-4">Recent Sessions</h3>
+          <h3 className="text-xs font-semibold text-muted-light uppercase tracking-[0.15em] mb-4">Recent</h3>
           <div className="space-y-2">
             {focusSessions.slice(-5).reverse().map((s) => (
               <div key={s.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                 <div className="flex items-center gap-3">
-                  <div className={cn('w-2 h-2 rounded-full', s.completed ? 'bg-success' : 'bg-warning')} />
+                  <div className={cn('w-1.5 h-1.5 rounded-full', s.completed ? 'bg-success' : 'bg-warning')} />
                   <div>
                     <p className="text-sm text-foreground">{s.label}</p>
-                    <p className="text-xs text-muted">{format(new Date(s.startedAt), 'MMM d, HH:mm')}</p>
+                    <p className="text-[10px] text-muted">{format(new Date(s.startedAt), 'MMM d, HH:mm')}</p>
                   </div>
                 </div>
-                <span className="text-sm text-muted-light font-mono">{formatMinutes(Math.round(s.duration / 60))}</span>
+                <span className="text-xs text-muted-light font-mono">{formatMinutes(Math.round(s.duration / 60))}</span>
               </div>
             ))}
           </div>

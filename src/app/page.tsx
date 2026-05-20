@@ -16,7 +16,7 @@ import { JournalModule } from '@/modules/journal/JournalModule';
 import { BootScreen } from '@/components/BootScreen';
 import { CommandBar } from '@/components/CommandBar';
 import { StatusBadge } from '@/components/StatusBadge';
-import { SettingsPanel, defaultSettings } from '@/components/SettingsPanel';
+import { SettingsPanel, defaultSettings, themeConfigs } from '@/components/SettingsPanel';
 import type { EVESettings } from '@/components/SettingsPanel';
 import { IdleMode } from '@/components/IdleMode';
 import { getStatusText } from '@/lib/contextualPhrases';
@@ -61,14 +61,23 @@ export default function EveApp() {
     }
   }, []);
 
-  // Apply theme to document
+  // Apply settings to document
   useEffect(() => {
     if (!mounted) return;
     const root = document.documentElement;
     root.setAttribute('data-theme', settings.theme);
     root.setAttribute('data-intensity', settings.intensity);
     root.setAttribute('data-font', settings.font);
-  }, [settings.theme, settings.intensity, settings.font, mounted]);
+    root.setAttribute('data-uimode', settings.uiMode);
+
+    // Apply theme CSS variables directly for full override
+    const themeVars = themeConfigs[settings.theme];
+    if (themeVars) {
+      Object.entries(themeVars).forEach(([key, value]) => {
+        root.style.setProperty(key, value);
+      });
+    }
+  }, [settings.theme, settings.intensity, settings.font, settings.uiMode, mounted]);
 
   // Keyboard shortcuts
   useEffect(() => {

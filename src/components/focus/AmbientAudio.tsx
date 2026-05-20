@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Volume2, VolumeX, ChevronUp, ChevronDown,
+  Volume2, VolumeX,
   CloudRain, CloudLightning, Flame, Coffee,
   Radio, Waves, Globe, Music, Moon,
 } from 'lucide-react';
@@ -11,37 +11,42 @@ import { cn } from '@/lib/utils';
 
 export type AmbientSound =
   | 'rain' | 'thunderstorm' | 'fireplace' | 'cafe'
-  | 'whiteNoise' | 'brownNoise' | 'space' | 'lofi' | 'darkAmbient';
+  | 'whiteNoise' | 'brownNoise' | 'space' | 'softSynth' | 'darkAmbient';
 
 interface SoundConfig {
   id: AmbientSound;
   label: string;
   icon: React.ReactNode;
-  type: 'generated' | 'url';
   color: string;
 }
 
 const sounds: SoundConfig[] = [
-  { id: 'rain', label: 'Rain', icon: <CloudRain size={16} />, type: 'generated', color: '#3b82f6' },
-  { id: 'thunderstorm', label: 'Thunder', icon: <CloudLightning size={16} />, type: 'generated', color: '#6366f1' },
-  { id: 'fireplace', label: 'Fire', icon: <Flame size={16} />, type: 'generated', color: '#f97316' },
-  { id: 'cafe', label: 'Café', icon: <Coffee size={16} />, type: 'generated', color: '#a78bfa' },
-  { id: 'whiteNoise', label: 'White', icon: <Radio size={16} />, type: 'generated', color: '#e5e7eb' },
-  { id: 'brownNoise', label: 'Brown', icon: <Waves size={16} />, type: 'generated', color: '#92400e' },
-  { id: 'space', label: 'Space', icon: <Globe size={16} />, type: 'generated', color: '#8b5cf6' },
-  { id: 'lofi', label: 'Lo-fi', icon: <Music size={16} />, type: 'generated', color: '#ec4899' },
-  { id: 'darkAmbient', label: 'Dark', icon: <Moon size={16} />, type: 'generated', color: '#4b5563' },
+  { id: 'rain', label: 'Rain', icon: <CloudRain size={16} />, color: '#4a9eff' },
+  { id: 'thunderstorm', label: 'Thunder', icon: <CloudLightning size={16} />, color: '#6366f1' },
+  { id: 'fireplace', label: 'Fire', icon: <Flame size={16} />, color: '#c8965a' },
+  { id: 'cafe', label: 'Café', icon: <Coffee size={16} />, color: '#9d7aff' },
+  { id: 'whiteNoise', label: 'White', icon: <Radio size={16} />, color: '#8890a4' },
+  { id: 'brownNoise', label: 'Brown', icon: <Waves size={16} />, color: '#c8965a' },
+  { id: 'space', label: 'Space', icon: <Globe size={16} />, color: '#9d7aff' },
+  { id: 'softSynth', label: 'Synth', icon: <Music size={16} />, color: '#4a9eff' },
+  { id: 'darkAmbient', label: 'Dark', icon: <Moon size={16} />, color: '#5a6070' },
 ];
 
-interface AmbientAudioProps {
-  className?: string;
-  compact?: boolean;
+// Shared AudioContext singleton
+let sharedCtx: AudioContext | null = null;
+function getAudioContext(): AudioContext {
+  if (!sharedCtx || sharedCtx.state === 'closed') {
+    sharedCtx = new AudioContext();
+  }
+  if (sharedCtx.state === 'suspended') {
+    sharedCtx.resume();
+  }
+  return sharedCtx;
 }
 
-// Web Audio API noise generators
 function createNoiseBuffer(ctx: AudioContext, type: 'white' | 'brown' | 'pink'): AudioBuffer {
   const sampleRate = ctx.sampleRate;
-  const length = sampleRate * 2; // 2 seconds loop
+  const length = sampleRate * 3;
   const buffer = ctx.createBuffer(1, length, sampleRate);
   const data = buffer.getChannelData(0);
 
@@ -76,123 +81,121 @@ function createNoiseBuffer(ctx: AudioContext, type: 'white' | 'brown' | 'pink'):
   return buffer;
 }
 
-function createFilteredNoise(ctx: AudioContext, type: AmbientSound): AudioBufferSourceNode {
+function buildSoundChain(ctx: AudioContext, type: AmbientSound, volume: number) {
+  const gain = ctx.createGain();
+  gain.gain.value = volume;
+
   const source = ctx.createBufferSource();
+  source.loop = true;
 
   switch (type) {
     case 'rain':
+      source.buffer = createNoiseBuffer(ctx, 'pink');
+      {
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 800;
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 8000;
+        source.connect(hp).connect(lp).connect(gain);
+      }
+      break;
+
     case 'thunderstorm':
       source.buffer = createNoiseBuffer(ctx, 'pink');
+      {
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 2000;
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = 100;
+        source.connect(hp).connect(lp).connect(gain);
+      }
       break;
+
     case 'fireplace':
+      source.buffer = createNoiseBuffer(ctx, 'brown');
+      {
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 400;
+        bp.Q.value = 0.5;
+        source.connect(bp).connect(gain);
+      }
+      break;
+
     case 'cafe':
       source.buffer = createNoiseBuffer(ctx, 'brown');
+      {
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 3000;
+        source.connect(lp).connect(gain);
+      }
       break;
+
     case 'whiteNoise':
       source.buffer = createNoiseBuffer(ctx, 'white');
+      source.connect(gain);
       break;
+
     case 'brownNoise':
       source.buffer = createNoiseBuffer(ctx, 'brown');
+      {
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 1200;
+        source.connect(lp).connect(gain);
+      }
       break;
+
     case 'space':
-    case 'darkAmbient':
       source.buffer = createNoiseBuffer(ctx, 'pink');
+      {
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 500;
+        source.connect(lp).connect(gain);
+      }
       break;
-    case 'lofi':
+
+    case 'softSynth':
+      source.buffer = createNoiseBuffer(ctx, 'pink');
+      {
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.value = 300;
+        bp.Q.value = 2;
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 800;
+        source.connect(bp).connect(lp).connect(gain);
+      }
+      break;
+
+    case 'darkAmbient':
       source.buffer = createNoiseBuffer(ctx, 'brown');
+      {
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 400;
+        source.connect(lp).connect(gain);
+      }
       break;
+
     default:
       source.buffer = createNoiseBuffer(ctx, 'white');
-  }
-
-  source.loop = true;
-  return source;
-}
-
-function createSoundChain(ctx: AudioContext, type: AmbientSound, volume: number): { source: AudioBufferSourceNode; gain: GainNode; nodes: AudioNode[] } {
-  const gain = ctx.createGain();
-  gain.gain.value = volume;
-  const source = createFilteredNoise(ctx, type);
-  const nodes: AudioNode[] = [];
-
-  // Apply filters based on sound type
-  switch (type) {
-    case 'rain': {
-      const hp = ctx.createBiquadFilter();
-      hp.type = 'highpass';
-      hp.frequency.value = 800;
-      const lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.value = 8000;
-      source.connect(hp);
-      hp.connect(lp);
-      lp.connect(gain);
-      nodes.push(hp, lp);
-      break;
-    }
-    case 'thunderstorm': {
-      const lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.value = 2000;
-      const hp = ctx.createBiquadFilter();
-      hp.type = 'highpass';
-      hp.frequency.value = 100;
-      source.connect(hp);
-      hp.connect(lp);
-      lp.connect(gain);
-      nodes.push(hp, lp);
-      break;
-    }
-    case 'fireplace': {
-      const bp = ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.value = 400;
-      bp.Q.value = 0.5;
-      source.connect(bp);
-      bp.connect(gain);
-      nodes.push(bp);
-      break;
-    }
-    case 'cafe': {
-      const lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.value = 3000;
-      source.connect(lp);
-      lp.connect(gain);
-      nodes.push(lp);
-      break;
-    }
-    case 'space':
-    case 'darkAmbient': {
-      const lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.value = 600;
-      const reverb = ctx.createGain();
-      reverb.gain.value = 0.8;
-      source.connect(lp);
-      lp.connect(reverb);
-      reverb.connect(gain);
-      nodes.push(lp, reverb);
-      break;
-    }
-    case 'lofi': {
-      const lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.value = 2500;
-      const hp = ctx.createBiquadFilter();
-      hp.type = 'highpass';
-      hp.frequency.value = 200;
-      source.connect(hp);
-      hp.connect(lp);
-      lp.connect(gain);
-      nodes.push(hp, lp);
-      break;
-    }
-    default:
       source.connect(gain);
   }
 
-  return { source, gain, nodes };
+  return { source, gain };
+}
+
+interface AmbientAudioProps {
+  className?: string;
+  compact?: boolean;
 }
 
 export function AmbientAudio({ className, compact = false }: AmbientAudioProps) {
@@ -200,55 +203,65 @@ export function AmbientAudio({ className, compact = false }: AmbientAudioProps) 
   const [volume, setVolume] = useState(0.3);
   const [showPanel, setShowPanel] = useState(false);
 
-  const ctxRef = useRef<AudioContext | null>(null);
+  // Use refs for values that shouldn't trigger re-renders
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
+
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const gainRef = useRef<GainNode | null>(null);
-  const nodesRef = useRef<AudioNode[]>([]);
+  const activeSoundRef = useRef<AmbientSound | null>(null);
 
   const cleanup = useCallback(() => {
     try {
-      sourceRef.current?.stop();
-      sourceRef.current?.disconnect();
-      nodesRef.current.forEach(n => n.disconnect());
-      gainRef.current?.disconnect();
+      if (sourceRef.current) {
+        sourceRef.current.stop();
+        sourceRef.current.disconnect();
+      }
+      if (gainRef.current) {
+        gainRef.current.disconnect();
+      }
     } catch {}
     sourceRef.current = null;
     gainRef.current = null;
-    nodesRef.current = [];
+    activeSoundRef.current = null;
   }, []);
 
   const playSound = useCallback((sound: AmbientSound) => {
     cleanup();
 
-    if (!ctxRef.current || ctxRef.current.state === 'closed') {
-      ctxRef.current = new AudioContext();
+    try {
+      const ctx = getAudioContext();
+      const { source, gain } = buildSoundChain(ctx, sound, volumeRef.current);
+      gain.connect(ctx.destination);
+      source.start();
+
+      sourceRef.current = source;
+      gainRef.current = gain;
+      activeSoundRef.current = sound;
+    } catch (e) {
+      console.error('Failed to play ambient sound:', e);
     }
-    const ctx = ctxRef.current;
-    if (ctx.state === 'suspended') ctx.resume();
-
-    const { source, gain, nodes } = createSoundChain(ctx, sound, volume);
-    gain.connect(ctx.destination);
-    source.start();
-
-    sourceRef.current = source;
-    gainRef.current = gain;
-    nodesRef.current = nodes;
-  }, [volume, cleanup]);
+  }, [cleanup]);
 
   const toggleSound = useCallback((sound: AmbientSound) => {
-    if (activeSound === sound) {
+    if (activeSoundRef.current === sound) {
       cleanup();
       setActiveSound(null);
     } else {
       setActiveSound(sound);
       playSound(sound);
     }
-  }, [activeSound, playSound, cleanup]);
+  }, [playSound, cleanup]);
 
-  // Update volume
+  // Update volume without recreating audio
   useEffect(() => {
     if (gainRef.current) {
-      gainRef.current.gain.setTargetAtTime(volume, ctxRef.current?.currentTime || 0, 0.1);
+      try {
+        const ctx = sharedCtx;
+        if (ctx && ctx.state !== 'closed') {
+          gainRef.current.gain.setTargetAtTime(volume, ctx.currentTime, 0.1);
+        }
+      } catch {}
     }
   }, [volume]);
 
@@ -256,7 +269,6 @@ export function AmbientAudio({ className, compact = false }: AmbientAudioProps) 
   useEffect(() => {
     return () => {
       cleanup();
-      ctxRef.current?.close();
     };
   }, [cleanup]);
 
@@ -303,7 +315,6 @@ export function AmbientAudio({ className, compact = false }: AmbientAudioProps) 
                 ))}
               </div>
 
-              {/* Volume */}
               <div className="flex items-center gap-2">
                 <VolumeX size={12} className="text-muted" />
                 <input
@@ -328,16 +339,14 @@ export function AmbientAudio({ className, compact = false }: AmbientAudioProps) 
     <div className={cn('space-y-3', className)}>
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold text-muted-light uppercase tracking-[0.15em]">Ambient Audio</h3>
-        <div className="flex items-center gap-2">
-          {activeSound && (
-            <button
-              onClick={() => { cleanup(); setActiveSound(null); }}
-              className="text-xs text-muted hover:text-foreground transition-colors"
-            >
-              Stop
-            </button>
-          )}
-        </div>
+        {activeSound && (
+          <button
+            onClick={() => { cleanup(); setActiveSound(null); }}
+            className="text-xs text-muted hover:text-foreground transition-colors"
+          >
+            Stop
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-2">
@@ -358,7 +367,6 @@ export function AmbientAudio({ className, compact = false }: AmbientAudioProps) 
         ))}
       </div>
 
-      {/* Volume slider */}
       <div className="flex items-center gap-3 pt-2">
         <VolumeX size={14} className="text-muted" />
         <input

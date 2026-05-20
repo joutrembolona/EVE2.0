@@ -4,35 +4,32 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import {
-  Flame, Target, BookOpen, Timer, TrendingUp,
-  Calendar, Zap, ChevronRight, Star,
+  Target, Timer, BookOpen, Dumbbell, Heart,
+  GraduationCap, Flag, PenTool, ChevronRight,
 } from 'lucide-react';
 import { GlassCard } from '@/components/ui/GlassCard';
-import { ProgressRing } from '@/components/ui/ProgressRing';
-import { ProgressBar } from '@/components/ui/Progress';
-import { useStore } from '@/store';
-import { getGreeting, getStreak, getToday, getConsistency } from '@/lib/utils';
-import { getRandomVerse, getRandomQuote } from '@/data/verses';
-import { getTimePhrase } from '@/lib/contextualPhrases';
 import { MissionPanel } from '@/components/MissionPanel';
+import { EVEPresence } from '@/components/EVEPresence';
+import { useStore, ModuleId } from '@/store';
+import { getGreeting, getToday } from '@/lib/utils';
+import { getTimePhrase, getModulePhrase } from '@/lib/contextualPhrases';
 
-const stagger = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
-};
+const quickAccess: { id: ModuleId; label: string; icon: React.ReactNode; color: string }[] = [
+  { id: 'focus', label: 'Focus', icon: <Timer size={16} />, color: '#4a9eff' },
+  { id: 'habits', label: 'Habits', icon: <Target size={16} />, color: '#3dd68c' },
+  { id: 'reading', label: 'Reading', icon: <BookOpen size={16} />, color: '#9d7aff' },
+  { id: 'workout', label: 'Workout', icon: <Dumbbell size={16} />, color: '#c8965a' },
+  { id: 'studies', label: 'Studies', icon: <GraduationCap size={16} />, color: '#4a9eff' },
+  { id: 'devotional', label: 'Devotional', icon: <Heart size={16} />, color: '#e85454' },
+  { id: 'goals', label: 'Goals', icon: <Flag size={16} />, color: '#c8965a' },
+  { id: 'journal', label: 'Journal', icon: <PenTool size={16} />, color: '#8890a4' },
+];
 
 export function HomeModule() {
-  const { habits, books, focusSessions, goals, setActiveModule } = useStore();
+  const { setActiveModule, focusSessions, habits, goals } = useStore();
   const [time, setTime] = useState('');
   const [date, setDate] = useState('');
-  const [verse, setVerse] = useState(getRandomVerse());
-  const [quote, setQuote] = useState(getRandomQuote());
-  const [contextPhrase, setContextPhrase] = useState(getTimePhrase());
+  const [phrase, setPhrase] = useState('');
 
   useEffect(() => {
     const update = () => {
@@ -40,6 +37,7 @@ export function HomeModule() {
       setDate(format(new Date(), 'EEEE, MMMM d'));
     };
     update();
+    setPhrase(getTimePhrase());
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, []);
@@ -47,246 +45,126 @@ export function HomeModule() {
   const today = getToday();
   const completedToday = habits.filter((h) => h.completedDates.includes(today)).length;
   const totalHabits = habits.length;
-  const habitPct = totalHabits > 0 ? Math.round((completedToday / totalHabits) * 100) : 0;
-
-  const totalStreak = habits.reduce((max, h) => Math.max(max, getStreak(h.completedDates)), 0);
-  const readingBooks = books.filter((b) => b.status === 'reading');
-  const activeGoals = goals.filter((g) => g.progress < 100);
-  const completedGoals = goals.filter((g) => g.progress >= 100).length;
-
   const todaySessions = focusSessions.filter((s) => s.startedAt.startsWith(today));
-  const todayFocusMin = todaySessions.reduce((sum, s) => sum + Math.round(s.duration / 60), 0);
+  const todayMinutes = todaySessions.reduce((sum, s) => sum + Math.round(s.duration / 60), 0);
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex items-end justify-between"
-      >
-        <div>
-          <p className="text-muted-light text-sm mb-1">{date}</p>
-          <h1 className="text-3xl lg:text-4xl font-bold text-gradient-gold">
-            {getGreeting()}
-          </h1>
-        </div>
-        <div className="text-right">
-          <div className="text-5xl lg:text-6xl font-light tracking-tight text-foreground font-mono">
+    <div className="h-full flex flex-col items-center justify-center p-8 relative overflow-hidden">
+      {/* Ambient glow */}
+      <div
+        className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, rgba(74,158,255,0.04) 0%, transparent 70%)',
+        }}
+      />
+
+      <div className="relative z-10 flex flex-col items-center max-w-xl w-full space-y-10">
+        {/* EVE Presence */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8, delay: 0.1 }}
+        >
+          <EVEPresence size="lg" />
+        </motion.div>
+
+        {/* Clock */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="text-center"
+        >
+          <h1
+            className="text-7xl font-extralight tracking-wider text-foreground"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              animation: 'clockGlow 4s ease-in-out infinite',
+            }}
+          >
             {time}
+          </h1>
+          <p className="text-sm text-muted mt-2 tracking-wide">{date}</p>
+        </motion.div>
+
+        {/* Greeting + Phrase */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.6 }}
+          className="text-center space-y-2"
+        >
+          <p className="text-lg text-foreground font-light">
+            {getGreeting()}, <span className="text-gradient-gold font-medium">Joseph</span>.
+          </p>
+          <p className="text-sm text-muted italic tracking-wide">
+            {phrase}
+          </p>
+        </motion.div>
+
+        {/* Today summary — minimal */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+          className="flex items-center gap-6 text-xs text-muted"
+        >
+          {totalHabits > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-success" />
+              {completedToday}/{totalHabits} habits
+            </span>
+          )}
+          {todayMinutes > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent" />
+              {todayMinutes}m focused
+            </span>
+          )}
+          {goals.length > 0 && (
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold" />
+              {goals.filter(g => g.progress >= 100).length}/{goals.length} goals
+            </span>
+          )}
+        </motion.div>
+
+        {/* Mission */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6, duration: 0.5 }}
+          className="w-full"
+        >
+          <MissionPanel />
+        </motion.div>
+
+        {/* Quick Access */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7, duration: 0.5 }}
+          className="w-full"
+        >
+          <div className="grid grid-cols-4 gap-2">
+            {quickAccess.map((item, i) => (
+              <motion.button
+                key={item.id}
+                whileHover={{ y: -2 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setActiveModule(item.id)}
+                className="flex flex-col items-center gap-2 p-3 rounded-xl bg-surface/50 hover:bg-surface-2 border border-transparent hover:border-border-light transition-all group"
+              >
+                <span style={{ color: item.color }} className="opacity-60 group-hover:opacity-100 transition-opacity">
+                  {item.icon}
+                </span>
+                <span className="text-[10px] text-muted group-hover:text-muted-light transition-colors">
+                  {item.label}
+                </span>
+              </motion.button>
+            ))}
           </div>
-        </div>
-      </motion.div>
-
-      {/* Stats row */}
-      <motion.div variants={stagger} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <motion.div variants={item}>
-          <GlassCard className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-              <Target size={18} className="text-accent" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{completedToday}/{totalHabits}</p>
-              <p className="text-xs text-muted">Habits today</p>
-            </div>
-          </GlassCard>
         </motion.div>
-
-        <motion.div variants={item}>
-          <GlassCard className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-gold-dim flex items-center justify-center">
-              <Flame size={18} className="text-gold" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{totalStreak}</p>
-              <p className="text-xs text-muted">Day streak</p>
-            </div>
-          </GlassCard>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <GlassCard className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
-              <Timer size={18} className="text-success" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{todayFocusMin}m</p>
-              <p className="text-xs text-muted">Focus today</p>
-            </div>
-          </GlassCard>
-        </motion.div>
-
-        <motion.div variants={item}>
-          <GlassCard className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-              <Star size={18} className="text-purple-400" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{completedGoals}</p>
-              <p className="text-xs text-muted">Goals done</p>
-            </div>
-          </GlassCard>
-        </motion.div>
-      </motion.div>
-
-      {/* Contextual phrase */}
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.25, duration: 0.5 }}
-        className="text-sm text-muted italic tracking-wide"
-      >
-        {contextPhrase}
-      </motion.p>
-
-      {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Daily progress */}
-        <motion.div variants={item} initial="hidden" animate="show" transition={{ delay: 0.3 }}>
-          <GlassCard className="h-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-muted-light uppercase tracking-wider">Daily Progress</h3>
-              <Calendar size={14} className="text-muted" />
-            </div>
-            <div className="flex items-center justify-center py-4">
-              <ProgressRing progress={habitPct} size={140} strokeWidth={8} color="#3b82f6">
-                <div className="text-center">
-                  <span className="text-3xl font-bold text-foreground">{habitPct}%</span>
-                  <p className="text-xs text-muted mt-1">complete</p>
-                </div>
-              </ProgressRing>
-            </div>
-            <div className="mt-4 space-y-2">
-              {habits.slice(0, 4).map((h) => (
-                <div key={h.id} className="flex items-center gap-3">
-                  <div
-                    className={`w-2 h-2 rounded-full ${h.completedDates.includes(today) ? 'bg-success' : 'bg-surface-3'}`}
-                  />
-                  <span className={`text-sm flex-1 ${h.completedDates.includes(today) ? 'text-foreground line-through opacity-60' : 'text-muted-light'}`}>
-                    {h.name}
-                  </span>
-                  {h.completedDates.includes(today) && <Zap size={12} className="text-gold" />}
-                </div>
-              ))}
-              {habits.length === 0 && (
-                <p className="text-sm text-muted text-center py-4">No habits yet. Start building discipline.</p>
-              )}
-            </div>
-          </GlassCard>
-        </motion.div>
-
-        {/* Right column */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Motivational & Verse */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-              <GlassCard className="h-full flex flex-col justify-between">
-                <div>
-                  <p className="text-xs text-muted-light uppercase tracking-wider mb-3">Daily Wisdom</p>
-                  <p className="text-sm text-foreground leading-relaxed italic">"{verse.text}"</p>
-                </div>
-                <p className="text-xs text-gold mt-3">— {verse.reference}</p>
-              </GlassCard>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
-              <GlassCard className="h-full flex flex-col justify-between">
-                <div>
-                  <p className="text-xs text-muted-light uppercase tracking-wider mb-3">Motivation</p>
-                  <p className="text-sm text-foreground leading-relaxed italic">"{quote.text}"</p>
-                </div>
-                <p className="text-xs text-muted-light mt-3">— {quote.author}</p>
-              </GlassCard>
-            </motion.div>
-          </div>
-
-          {/* Quick access */}
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-            <GlassCard>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-muted-light uppercase tracking-wider">Quick Access</h3>
-                <TrendingUp size={14} className="text-muted" />
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {[
-                  { id: 'focus' as const, label: 'Focus Mode', icon: Timer, color: 'text-success' },
-                  { id: 'habits' as const, label: 'Habits', icon: Target, color: 'text-accent' },
-                  { id: 'reading' as const, label: 'Reading', icon: BookOpen, color: 'text-purple-400' },
-                  { id: 'journal' as const, label: 'Journal', icon: Star, color: 'text-gold' },
-                ].map((q) => (
-                  <motion.button
-                    key={q.id}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => setActiveModule(q.id)}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-surface-2 hover:bg-surface-3 transition-colors text-left"
-                  >
-                    <q.icon size={16} className={q.color} />
-                    <span className="text-sm text-foreground">{q.label}</span>
-                    <ChevronRight size={12} className="text-muted ml-auto" />
-                  </motion.button>
-                ))}
-              </div>
-            </GlassCard>
-          </motion.div>
-
-          {/* Goals & Reading & Mission */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>
-              <GlassCard className="h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-muted-light uppercase tracking-wider">Active Goals</h3>
-                  <span className="text-xs text-muted">{activeGoals.length} active</span>
-                </div>
-                <div className="space-y-3">
-                  {activeGoals.slice(0, 3).map((g) => (
-                    <div key={g.id}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-foreground truncate">{g.title}</span>
-                        <span className="text-xs text-muted">{g.progress}%</span>
-                      </div>
-                      <ProgressBar value={g.progress} height={4} color={g.priority === 'high' ? '#ef4444' : g.priority === 'medium' ? '#eab308' : '#3b82f6'} />
-                    </div>
-                  ))}
-                  {activeGoals.length === 0 && (
-                    <p className="text-sm text-muted text-center py-3">No active goals.</p>
-                  )}
-                </div>
-              </GlassCard>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-              <GlassCard className="h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold text-muted-light uppercase tracking-wider">Currently Reading</h3>
-                  <BookOpen size={14} className="text-muted" />
-                </div>
-                <div className="space-y-3">
-                  {readingBooks.slice(0, 2).map((b) => (
-                    <div key={b.id} className="flex items-center gap-3">
-                      <div className="w-10 h-14 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: b.coverColor }}>
-                        {b.title.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-foreground truncate">{b.title}</p>
-                        <p className="text-xs text-muted">{b.author}</p>
-                        <ProgressBar value={b.currentPage} max={b.totalPages} height={3} color="#a78bfa" className="mt-1" />
-                      </div>
-                    </div>
-                  ))}
-                  {readingBooks.length === 0 && (
-                    <p className="text-sm text-muted text-center py-3">No books in progress.</p>
-                  )}
-                </div>
-              </GlassCard>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }}>
-              <MissionPanel className="h-full" />
-            </motion.div>
-          </div>
-        </div>
       </div>
     </div>
   );

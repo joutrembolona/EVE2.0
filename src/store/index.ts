@@ -4,7 +4,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { EVESettings } from '@/components/SettingsPanel';
 import { defaultSettings } from '@/components/SettingsPanel';
-import type { AmbientSound } from '@/components/focus/AmbientAudio';
 
 // Types
 export type ModuleId = 'home' | 'habits' | 'focus' | 'reading' | 'studies' | 'workout' | 'devotional' | 'goals' | 'journal';
@@ -195,8 +194,8 @@ export interface AppState {
   setCommandBarOpen: (open: boolean) => void;
 
   // Focus audio
-  focusAmbientSound: AmbientSound | null;
-  setFocusAmbientSound: (sound: AmbientSound | null) => void;
+  focusAmbientSound: string | null;
+  setFocusAmbientSound: (sound: string | null) => void;
   focusVolume: number;
   setFocusVolume: (volume: number) => void;
 }
