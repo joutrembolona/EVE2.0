@@ -19,7 +19,9 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { SettingsPanel, defaultSettings, themeConfigs } from '@/components/SettingsPanel';
 import type { EVESettings } from '@/components/SettingsPanel';
 import { IdleMode } from '@/components/IdleMode';
+import { ParticleCanvas } from '@/components/ParticleCanvas';
 import { getStatusText } from '@/lib/contextualPhrases';
+import { playSound, setSoundEnabled } from '@/lib/sounds';
 import { Command, Settings } from 'lucide-react';
 
 const moduleComponents: Record<string, React.ComponentType> = {
@@ -58,12 +60,16 @@ export default function EveApp() {
     }
   }, []);
 
+  // Sync sound enabled
+  useEffect(() => {
+    setSoundEnabled(settings.soundEnabled);
+  }, [settings.soundEnabled]);
+
   // Apply ALL settings to document
   useEffect(() => {
     if (!mounted) return;
     const root = document.documentElement;
 
-    // Theme
     root.setAttribute('data-theme', settings.theme);
     const themeVars = themeConfigs[settings.theme];
     if (themeVars) {
@@ -72,31 +78,15 @@ export default function EveApp() {
       });
     }
 
-    // Font
     root.setAttribute('data-font', settings.font);
-
-    // Density
     root.setAttribute('data-density', settings.density);
-
-    // Glow
     root.setAttribute('data-glow', settings.glow);
-
-    // Motion
     root.setAttribute('data-motion', settings.motion);
-
-    // Background
     root.setAttribute('data-background', settings.background);
-
-    // Transparency (applied to glass class via CSS variable)
     root.style.setProperty('--glass-opacity', (settings.transparency / 100).toFixed(2));
-
-    // Blur
     root.style.setProperty('--glass-blur', `${settings.blurAmount}px`);
-
-    // Particles
     root.setAttribute('data-particles', settings.particlesEnabled ? 'on' : 'off');
     root.style.setProperty('--particle-opacity', (settings.particleIntensity / 100 * 0.08).toFixed(3));
-
   }, [settings, mounted]);
 
   // Keyboard shortcuts
@@ -135,11 +125,16 @@ export default function EveApp() {
     sessionStorage.setItem('eve-booted', '1');
     setShowBoot(false);
     setBooted(true);
+    playSound('startup');
   }, []);
 
   const handleSettingsChange = useCallback((newSettings: EVESettings) => {
     updateSettings(newSettings);
   }, [updateSettings]);
+
+  const handleModuleChange = useCallback((module: string) => {
+    playSound('transition');
+  }, []);
 
   const ActiveComponent = moduleComponents[activeModule] || HomeModule;
 
@@ -175,7 +170,13 @@ export default function EveApp() {
         )}
       </AnimatePresence>
 
+      {/* Particle canvas (always renders when enabled) */}
+      {booted && <ParticleCanvas />}
+
       {backgroundLayer}
+
+      {/* Noise overlay */}
+      <div className="noise-overlay" />
 
       {booted && (
         <div className="flex h-screen bg-background relative z-10">
@@ -186,15 +187,17 @@ export default function EveApp() {
               <StatusBadge status={getStatusText(activeModule, false)} />
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCommandBarOpen(true)}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] text-muted hover:text-foreground hover:bg-surface-2 transition-all"
+                  onClick={() => { setCommandBarOpen(true); playSound('click'); }}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] text-muted hover:text-foreground hover:bg-surface-2/50 transition-all"
+                  onMouseEnter={() => playSound('hover')}
                 >
                   <Command size={12} />
                   <span className="hidden sm:inline">CTRL+K</span>
                 </button>
                 <button
-                  onClick={() => setSettingsOpen(true)}
-                  className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-surface-2 transition-all"
+                  onClick={() => { setSettingsOpen(true); playSound('click'); }}
+                  className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-surface-2/50 transition-all"
+                  onMouseEnter={() => playSound('hover')}
                 >
                   <Settings size={14} />
                 </button>
@@ -205,11 +208,12 @@ export default function EveApp() {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeModule}
-                  initial={{ opacity: 0, x: 20, filter: 'blur(4px)' }}
-                  animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, x: -20, filter: 'blur(4px)' }}
-                  transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  initial={{ opacity: 0, filter: 'blur(6px)' }}
+                  animate={{ opacity: 1, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, filter: 'blur(6px)' }}
+                  transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
                   className="h-full overflow-y-auto"
+                  onAnimationComplete={() => handleModuleChange(activeModule)}
                 >
                   <ActiveComponent />
                 </motion.div>
@@ -221,7 +225,7 @@ export default function EveApp() {
 
       <CommandBar
         isOpen={commandBarOpen}
-        onClose={() => setCommandBarOpen(false)}
+        onClose={() => { setCommandBarOpen(false); playSound('click'); }}
         onOpenSettings={() => setSettingsOpen(true)}
       />
 

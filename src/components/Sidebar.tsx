@@ -8,6 +8,7 @@ import {
 import { useStore, ModuleId } from '@/store';
 import { cn } from '@/lib/utils';
 import { EVEPresence } from './EVEPresence';
+import { playSound } from '@/lib/sounds';
 
 const iconMap: Record<string, React.ElementType> = {
   LayoutDashboard, Target, Timer, BookOpen, GraduationCap,
@@ -19,9 +20,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onOpenSettings }: SidebarProps) {
-  const { activeModule, setActiveModule, sidebarCollapsed, toggleSidebar, modules, focusAmbientSound } = useStore();
+  const { activeModule, setActiveModule, sidebarCollapsed, toggleSidebar, modules } = useStore();
   const visibleModules = modules.filter((m) => m.visible);
-  const isFocusing = activeModule === 'focus' && !!focusAmbientSound;
 
   return (
     <motion.aside
@@ -63,7 +63,8 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
               key={mod.id}
               whileHover={{ x: 2 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => setActiveModule(mod.id)}
+              onClick={() => { setActiveModule(mod.id); playSound('click'); }}
+              onMouseEnter={() => playSound('hover')}
               className={cn(
                 'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 relative group',
                 isActive
@@ -101,15 +102,13 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
       <div className="p-3 border-t border-border space-y-2">
         {!sidebarCollapsed && (
           <div className="flex items-center gap-2 px-2 py-1.5">
-            <EVEPresence active={!isFocusing} size="sm" />
-            <span className="text-[10px] text-muted tracking-wider">
-              {isFocusing ? 'Focused' : 'Online'}
-            </span>
+            <EVEPresence size="sm" />
+            <span className="text-[10px] text-muted tracking-wider">Online</span>
           </div>
         )}
 
         <button
-          onClick={toggleSidebar}
+          onClick={() => { toggleSidebar(); playSound('click'); }}
           className="w-full flex items-center justify-center py-2 rounded-xl text-muted hover:text-foreground hover:bg-surface-2/50 transition-colors"
         >
           {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
