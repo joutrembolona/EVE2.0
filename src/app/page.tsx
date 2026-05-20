@@ -38,7 +38,6 @@ export default function EveApp() {
   const {
     activeModule, settings, updateSettings,
     commandBarOpen, setCommandBarOpen,
-    focusAmbientSound,
   } = useStore();
 
   const [booted, setBooted] = useState(false);
@@ -48,10 +47,8 @@ export default function EveApp() {
   const [mounted, setMounted] = useState(false);
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Mount check
   useEffect(() => {
     setMounted(true);
-    // Check if boot screen should play
     const bootSetting = useStore.getState().settings.bootScreenEnabled;
     const sessionBooted = sessionStorage.getItem('eve-booted');
     if (bootSetting && !sessionBooted) {
@@ -61,23 +58,46 @@ export default function EveApp() {
     }
   }, []);
 
-  // Apply settings to document
+  // Apply ALL settings to document
   useEffect(() => {
     if (!mounted) return;
     const root = document.documentElement;
-    root.setAttribute('data-theme', settings.theme);
-    root.setAttribute('data-intensity', settings.intensity);
-    root.setAttribute('data-font', settings.font);
-    root.setAttribute('data-uimode', settings.uiMode);
 
-    // Apply theme CSS variables directly for full override
+    // Theme
+    root.setAttribute('data-theme', settings.theme);
     const themeVars = themeConfigs[settings.theme];
     if (themeVars) {
       Object.entries(themeVars).forEach(([key, value]) => {
         root.style.setProperty(key, value);
       });
     }
-  }, [settings.theme, settings.intensity, settings.font, settings.uiMode, mounted]);
+
+    // Font
+    root.setAttribute('data-font', settings.font);
+
+    // Density
+    root.setAttribute('data-density', settings.density);
+
+    // Glow
+    root.setAttribute('data-glow', settings.glow);
+
+    // Motion
+    root.setAttribute('data-motion', settings.motion);
+
+    // Background
+    root.setAttribute('data-background', settings.background);
+
+    // Transparency (applied to glass class via CSS variable)
+    root.style.setProperty('--glass-opacity', (settings.transparency / 100).toFixed(2));
+
+    // Blur
+    root.style.setProperty('--glass-blur', `${settings.blurAmount}px`);
+
+    // Particles
+    root.setAttribute('data-particles', settings.particlesEnabled ? 'on' : 'off');
+    root.style.setProperty('--particle-opacity', (settings.particleIntensity / 100 * 0.08).toFixed(3));
+
+  }, [settings, mounted]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -98,7 +118,7 @@ export default function EveApp() {
   const resetIdle = useCallback(() => {
     setIdle(false);
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    idleTimerRef.current = setTimeout(() => setIdle(true), 120000); // 2 min
+    idleTimerRef.current = setTimeout(() => setIdle(true), 120000);
   }, []);
 
   useEffect(() => {
@@ -122,46 +142,48 @@ export default function EveApp() {
   }, [updateSettings]);
 
   const ActiveComponent = moduleComponents[activeModule] || HomeModule;
-  const isFocusing = activeModule === 'focus' && !!focusAmbientSound;
-  const status = getStatusText(activeModule, isFocusing);
 
   if (!mounted) return null;
 
   // Background layer
-  const backgroundLayer = settings.background === 'gradient' ? (
+  const bg = settings.background;
+  const backgroundLayer = bg === 'gradient' ? (
     <div className="bg-gradient-motion" />
-  ) : settings.background === 'grid' ? (
+  ) : bg === 'grid' ? (
     <div className="bg-grid-lines" />
-  ) : settings.background === 'particles' ? (
+  ) : bg === 'particles' || bg === 'dust' ? (
     <div className="bg-particles-animated" />
+  ) : bg === 'fog' ? (
+    <div className="bg-fog" />
+  ) : bg === 'blur' ? (
+    <div className="bg-cinematic-blur" />
+  ) : bg === 'lightDrift' ? (
+    <div className="bg-light-drift" />
+  ) : bg === 'rain' ? (
+    <div className="bg-rain" />
+  ) : bg === 'rainyCity' ? (
+    <div className="bg-rainy-city" />
   ) : null;
 
   return (
     <>
-      {/* Boot Screen */}
       {showBoot && <BootScreen onComplete={handleBootComplete} />}
 
-      {/* Idle Mode */}
       <AnimatePresence>
         {idle && booted && !showBoot && (
           <IdleMode onWake={() => setIdle(false)} />
         )}
       </AnimatePresence>
 
-      {/* Background */}
       {backgroundLayer}
 
-      {/* Main App */}
       {booted && (
         <div className="flex h-screen bg-background relative z-10">
-          <Sidebar
-            onOpenSettings={() => setSettingsOpen(true)}
-          />
+          <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
 
           <main className="flex-1 overflow-hidden flex flex-col">
-            {/* Top bar */}
             <div className="flex items-center justify-between px-6 h-10 shrink-0">
-              <StatusBadge status={status} />
+              <StatusBadge status={getStatusText(activeModule, false)} />
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setCommandBarOpen(true)}
@@ -179,7 +201,6 @@ export default function EveApp() {
               </div>
             </div>
 
-            {/* Module content */}
             <div className="flex-1 overflow-hidden">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -198,14 +219,12 @@ export default function EveApp() {
         </div>
       )}
 
-      {/* Command Bar */}
       <CommandBar
         isOpen={commandBarOpen}
         onClose={() => setCommandBarOpen(false)}
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
-      {/* Settings Panel */}
       <SettingsPanel
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
