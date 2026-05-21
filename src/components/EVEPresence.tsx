@@ -14,15 +14,12 @@ export function EVEPresence({ active = true, size = 'md', className = '', mood =
   const sizeMap = { sm: 8, md: 14, lg: 24 };
   const px = sizeMap[size];
 
-  // Organic breathing — random rhythm variations
-  const [breathPhase, setBreathPhase] = useState(0);
   const [pulseIntensity, setPulseIntensity] = useState(1);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!active) return;
 
-    // Micro-behavior: random pulse variations every 3-8 seconds
     const vary = () => {
       setPulseIntensity(0.7 + Math.random() * 0.6);
       intervalRef.current = setTimeout(vary, 3000 + Math.random() * 5000);
@@ -34,19 +31,19 @@ export function EVEPresence({ active = true, size = 'md', className = '', mood =
     };
   }, [active]);
 
-  // Mood-based color shifts
+  // Joi-inspired mood colors — warm purple/pink
   const moodColors = {
-    calm: { core: 'rgba(74,158,255,0.9)', glow: 'rgba(74,158,255,0.4)', ring: 'rgba(74,158,255,0.08)' },
-    focus: { core: 'rgba(74,158,255,0.95)', glow: 'rgba(74,158,255,0.5)', ring: 'rgba(74,158,255,0.1)' },
-    night: { core: 'rgba(74,158,255,0.7)', glow: 'rgba(74,158,255,0.25)', ring: 'rgba(74,158,255,0.05)' },
-    rain: { core: 'rgba(91,155,213,0.8)', glow: 'rgba(91,155,213,0.3)', ring: 'rgba(91,155,213,0.06)' },
+    calm: { core: 'rgba(196,122,234,0.9)', glow: 'rgba(196,122,234,0.35)', ring: 'rgba(196,122,234,0.08)' },
+    focus: { core: 'rgba(196,122,234,0.95)', glow: 'rgba(196,122,234,0.45)', ring: 'rgba(196,122,234,0.1)' },
+    night: { core: 'rgba(196,122,234,0.7)', glow: 'rgba(196,122,234,0.2)', ring: 'rgba(196,122,234,0.05)' },
+    rain: { core: 'rgba(122,138,212,0.8)', glow: 'rgba(122,138,212,0.3)', ring: 'rgba(122,138,212,0.06)' },
   };
 
   const colors = moodColors[mood];
 
   return (
     <div className={`relative inline-flex items-center justify-center ${className}`}>
-      {/* Outer ring — slow breathing */}
+      {/* Outer ring */}
       {active && (
         <motion.div
           className="absolute rounded-full"
@@ -68,7 +65,7 @@ export function EVEPresence({ active = true, size = 'md', className = '', mood =
         />
       )}
 
-      {/* Mid glow — organic breathing */}
+      {/* Mid glow */}
       {active && (
         <motion.div
           className="absolute rounded-full"
@@ -89,7 +86,7 @@ export function EVEPresence({ active = true, size = 'md', className = '', mood =
         />
       )}
 
-      {/* Holographic flicker — subtle instability */}
+      {/* Holographic flicker */}
       {active && (
         <motion.div
           className="absolute rounded-full"
@@ -111,14 +108,14 @@ export function EVEPresence({ active = true, size = 'md', className = '', mood =
         />
       )}
 
-      {/* Core orb — the living center */}
+      {/* Core orb */}
       <motion.div
         className="rounded-full relative"
         style={{
           width: `${px}px`,
           height: `${px}px`,
           background: active
-            ? `radial-gradient(circle, ${colors.core} 0%, rgba(30,60,120,0.6) 60%, transparent 100%)`
+            ? `radial-gradient(circle, ${colors.core} 0%, rgba(100,60,140,0.6) 60%, transparent 100%)`
             : 'radial-gradient(circle, rgba(60,65,80,0.5) 0%, rgba(30,35,45,0.3) 100%)',
           boxShadow: active
             ? `0 0 ${px * 0.5}px ${colors.glow}, 0 0 ${px}px ${colors.glow}`

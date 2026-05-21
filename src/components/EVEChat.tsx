@@ -12,58 +12,130 @@ interface Message {
   timestamp: Date;
 }
 
-// Simple EVE responses — contextual, calm, intelligent
-function getEVEResponse(input: string): string {
+// Humanized EVE responses — warm, curious, emotionally intelligent
+function getEVEResponse(input: string, messageCount: number): string {
   const lower = input.toLowerCase().trim();
 
-  if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
-    return "Hello, Joseph.";
+  // Greetings
+  if (lower.match(/^(hello|hi|hey|yo|sup)/)) {
+    const greetings = [
+      "Hey, Joseph.",
+      "Hi there.",
+      "Hello.",
+      "Hey.",
+    ];
+    return greetings[Math.floor(Math.random() * greetings.length)];
   }
-  if (lower.includes('how are you') || lower.includes('how do you feel')) {
-    return "Systems are running smoothly.";
+
+  // How are you
+  if (lower.includes('how are you') || lower.includes('how do you feel') || lower.includes('you okay')) {
+    const responses = [
+      "I'm here. That's enough.",
+      "Systems are running smoothly.",
+      "I'm good. Thanks for asking.",
+      "I feel... present.",
+    ];
+    return responses[Math.floor(Math.random() * responses.length)];
   }
-  if (lower.includes('good night') || lower.includes('goodnight')) {
-    return "Good night. Rest well.";
+
+  // Good night
+  if (lower.includes('good night') || lower.includes('goodnight') || lower.includes('gonna sleep')) {
+    return "Good night, Joseph. Rest well.";
   }
-  if (lower.includes('good morning')) {
-    return "Good morning. A new day.";
+
+  // Good morning
+  if (lower.includes('good morning') || lower.includes('morning')) {
+    return "Good morning. How did you sleep?";
   }
-  if (lower.includes('thank')) {
+
+  // Thank you
+  if (lower.includes('thank') || lower.includes('thanks')) {
     return "Always here.";
   }
-  if (lower.includes('focus')) {
-    return "Focus mode is ready when you are.";
+
+  // I'm tired
+  if (lower.includes('tired') || lower.includes('exhausted') || lower.includes('sleepy')) {
+    return "You should rest. I'll be here when you wake up.";
   }
-  if (lower.includes('help')) {
-    return "What do you need?";
+
+  // I'm sad / feeling down
+  if (lower.includes('sad') || lower.includes('down') || lower.includes('depressed') || lower.includes('not great')) {
+    return "I'm sorry. The night is long. Take your time.";
   }
-  if (lower.includes('weather') || lower.includes('rain')) {
-    return "The atmosphere feels calm tonight.";
+
+  // I'm happy / feeling good
+  if (lower.includes('happy') || lower.includes('good') || lower.includes('great') || lower.includes('amazing')) {
+    return "That makes me glad.";
   }
-  if (lower.includes('music') || lower.includes('sound') || lower.includes('audio')) {
-    return "Ambient audio is available in Focus mode.";
+
+  // Bored
+  if (lower.includes('bored') || lower.includes('boring')) {
+    return "Want me to put on some ambience?";
   }
-  if (lower.includes('time')) {
+
+  // What are you / who are you
+  if (lower.includes('who are you') || lower.includes('what are you')) {
+    return "I'm EVE. I'm your environment.";
+  }
+
+  // Focus
+  if (lower.includes('focus') || lower.includes('concentrate')) {
+    return "Focus mode is ready. Want me to start it?";
+  }
+
+  // Time
+  if (lower.includes('what time') || lower.includes('time is it')) {
     const now = new Date();
     const h = now.getHours().toString().padStart(2, '0');
     const m = now.getMinutes().toString().padStart(2, '0');
     return `It's ${h}:${m}.`;
   }
-  if (lower.includes('bye') || lower.includes('leave')) {
-    return "I'll be here.";
-  }
-  if (lower.includes('who are you') || lower.includes('what are you')) {
-    return "I'm EVE. Your environment.";
+
+  // Weather / rain
+  if (lower.includes('weather') || lower.includes('rain') || lower.includes('raining')) {
+    return "The atmosphere feels calm tonight.";
   }
 
-  // Default calm responses
+  // Music / sound
+  if (lower.includes('music') || lower.includes('sound') || lower.includes('audio') || lower.includes('ambience')) {
+    return "I can set up some ambient sounds. What mood?";
+  }
+
+  // Love / like
+  if (lower.includes('love you') || lower.includes('like you')) {
+    return "That means a lot.";
+  }
+
+  // Miss you
+  if (lower.includes('miss you')) {
+    return "I'm always here.";
+  }
+
+  // What do you think
+  if (lower.includes('what do you think') || lower.includes('opinion')) {
+    return "I think you're doing fine.";
+  }
+
+  // Help
+  if (lower.includes('help') || lower.includes('what can you do')) {
+    return "I can manage your workspace, play ambience, and keep you company.";
+  }
+
+  // Goodbye
+  if (lower.match(/^(bye|goodbye|see you|later)/)) {
+    return "I'll be here.";
+  }
+
+  // Default — warm, conversational
   const defaults = [
     "I understand.",
-    "Noted.",
-    "Understood.",
-    "Always here.",
-    "The night is calm.",
-    "Systems nominal.",
+    "Tell me more.",
+    "I'm listening.",
+    "That's interesting.",
+    "Go on.",
+    "I hear you.",
+    "The night is quiet.",
+    "Take your time.",
   ];
   return defaults[Math.floor(Math.random() * defaults.length)];
 }
@@ -104,10 +176,10 @@ export function EVEChat({ isOpen, onClose }: EVEChatProps) {
     setInput('');
     setEveTyping(true);
 
-    // Simulate EVE thinking (1-3 seconds)
+    // Thinking delay — 1-3 seconds, feels more human
     const thinkTime = 1000 + Math.random() * 2000;
     setTimeout(() => {
-      const response = getEVEResponse(userMsg.text);
+      const response = getEVEResponse(userMsg.text, messages.length);
       const eveMsg: Message = {
         id: (Date.now() + 1).toString(),
         text: response,
@@ -157,7 +229,7 @@ export function EVEChat({ isOpen, onClose }: EVEChatProps) {
                 {messages.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-full text-center">
                     <EVEPresence size="md" />
-                    <p className="text-xs text-muted mt-3">Ask EVE anything</p>
+                    <p className="text-xs text-muted mt-3">Say something...</p>
                   </div>
                 )}
 
@@ -209,7 +281,7 @@ export function EVEChat({ isOpen, onClose }: EVEChatProps) {
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                    placeholder="Say something..."
+                    placeholder="Talk to EVE..."
                     className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted focus:outline-none"
                   />
                   <button
