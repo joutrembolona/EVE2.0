@@ -143,6 +143,39 @@ export function getActivityPhrase(activity: 'afterFocus' | 'afterWorkout' | 'aft
   return pickRandom(activityPhrases[activity]);
 }
 
+const greetingPhrases: Record<string, string[]> = {
+  earlyMorning: [
+    'Good early morning, Joseph.',
+    'You\'re up early.',
+    'The city is still sleeping.',
+  ],
+  morning: [
+    'Good morning, Joseph.',
+    'A new day.',
+    'Morning.',
+  ],
+  afternoon: [
+    'Good afternoon.',
+    'Still at it.',
+    'Afternoon.',
+  ],
+  evening: [
+    'Good evening, Joseph.',
+    'Welcome back.',
+    'The evening is here.',
+  ],
+  night: [
+    'Good night, Joseph.',
+    'Late night.',
+    'Still here.',
+    'The night feels calm.',
+  ],
+};
+
+export function getGreetingPhrase(): string {
+  return pickRandom(greetingPhrases[getTimeOfDay()]);
+}
+
 export function getStatusText(activeModule: string, isFocusing: boolean): string {
   if (isFocusing) return 'Deep Work Active';
 

@@ -14,6 +14,7 @@ import { DevotionalModule } from '@/modules/devotional/DevotionalModule';
 import { GoalsModule } from '@/modules/goals/GoalsModule';
 import { JournalModule } from '@/modules/journal/JournalModule';
 import { BootScreen } from '@/components/BootScreen';
+import { PresenceScreen } from '@/components/PresenceScreen';
 import { CommandBar } from '@/components/CommandBar';
 import { StatusBadge } from '@/components/StatusBadge';
 import { SettingsPanel, defaultSettings, themeConfigs } from '@/components/SettingsPanel';
@@ -22,6 +23,8 @@ import { IdleMode } from '@/components/IdleMode';
 import { ParticleCanvas } from '@/components/ParticleCanvas';
 import { getStatusText } from '@/lib/contextualPhrases';
 import { playSound, setSoundEnabled } from '@/lib/sounds';
+import { speak, initVoice } from '@/lib/voice';
+import { getGreetingPhrase } from '@/lib/contextualPhrases';
 import { Command, Settings } from 'lucide-react';
 
 const moduleComponents: Record<string, React.ComponentType> = {
@@ -44,10 +47,13 @@ export default function EveApp() {
 
   const [booted, setBooted] = useState(false);
   const [showBoot, setShowBoot] = useState(false);
+  const [showPresence, setShowPresence] = useState(false);
+  const [workspaceReady, setWorkspaceReady] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [idle, setIdle] = useState(false);
   const [mounted, setMounted] = useState(false);
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const voiceSpokenRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -57,6 +63,7 @@ export default function EveApp() {
       setShowBoot(true);
     } else {
       setBooted(true);
+      setShowPresence(true);
     }
   }, []);
 
@@ -125,16 +132,28 @@ export default function EveApp() {
     sessionStorage.setItem('eve-booted', '1');
     setShowBoot(false);
     setBooted(true);
+    setShowPresence(true);
     playSound('startup');
+
+    // Speak greeting after a moment
+    if (settings.soundEnabled && !voiceSpokenRef.current) {
+      voiceSpokenRef.current = true;
+      setTimeout(() => {
+        initVoice();
+        setTimeout(() => speak(getGreetingPhrase()), 500);
+      }, 2000);
+    }
+  }, [settings.soundEnabled]);
+
+  const handleEnterWorkspace = useCallback(() => {
+    setShowPresence(false);
+    setTimeout(() => setWorkspaceReady(true), 800);
+    playSound('transition');
   }, []);
 
   const handleSettingsChange = useCallback((newSettings: EVESettings) => {
     updateSettings(newSettings);
   }, [updateSettings]);
-
-  const handleModuleChange = useCallback((module: string) => {
-    playSound('transition');
-  }, []);
 
   const ActiveComponent = moduleComponents[activeModule] || HomeModule;
 
@@ -165,7 +184,13 @@ export default function EveApp() {
       {showBoot && <BootScreen onComplete={handleBootComplete} />}
 
       <AnimatePresence>
-        {idle && booted && !showBoot && (
+        {showPresence && booted && !showBoot && (
+          <PresenceScreen onEnterWorkspace={handleEnterWorkspace} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {idle && workspaceReady && !showBoot && !showPresence && (
           <IdleMode onWake={() => setIdle(false)} />
         )}
       </AnimatePresence>
@@ -185,7 +210,7 @@ export default function EveApp() {
       {/* Noise texture */}
       <div className="noise-overlay" />
 
-      {booted && (
+      {workspaceReady && (
         <div className="flex h-screen bg-background relative z-10">
           <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
 
@@ -218,9 +243,8 @@ export default function EveApp() {
                   initial={{ opacity: 0, filter: 'blur(6px)' }}
                   animate={{ opacity: 1, filter: 'blur(0px)' }}
                   exit={{ opacity: 0, filter: 'blur(6px)' }}
-                  transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
                   className="h-full overflow-y-auto"
-                  onAnimationComplete={() => handleModuleChange(activeModule)}
                 >
                   <ActiveComponent />
                 </motion.div>

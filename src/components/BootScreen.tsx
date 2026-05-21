@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const loadingPhrases = [
-  'Loading modules...',
-  'Syncing environment...',
+  'Initializing environment...',
+  'Restoring atmosphere...',
+  'Synchronizing presence...',
   'Preparing workspace...',
-  'Establishing connection...',
+  'Calibrating systems...',
 ];
 
 interface BootScreenProps {
@@ -15,30 +16,41 @@ interface BootScreenProps {
 }
 
 export function BootScreen({ onComplete }: BootScreenProps) {
-  const [phase, setPhase] = useState<'title' | 'init' | 'loading' | 'welcome' | 'done'>('title');
-  const [phraseIndex, setPhraseIndex] = useState(0);
+  const [phase, setPhase] = useState<'black' | 'title' | 'loading' | 'pause' | 'done'>('black');
+  const [phraseIndex, setPhraseIndex] = useState(-1);
   const [currentPhrase, setCurrentPhrase] = useState('');
 
   useEffect(() => {
     const timers: NodeJS.Timeout[] = [];
 
-    timers.push(setTimeout(() => setPhase('init'), 800));
-    timers.push(setTimeout(() => setPhase('loading'), 1400));
-    timers.push(setTimeout(() => setPhraseIndex(1), 1700));
-    timers.push(setTimeout(() => setPhraseIndex(2), 2000));
-    timers.push(setTimeout(() => setPhraseIndex(3), 2300));
-    timers.push(setTimeout(() => setPhase('welcome'), 2800));
+    // Phase 1: Pure black with ambient atmosphere (1.5s)
+    timers.push(setTimeout(() => setPhase('title'), 1500));
+
+    // Phase 2: EVE OS title fades in slowly (1.5s visible)
+    timers.push(setTimeout(() => setPhase('loading'), 3500));
+
+    // Phase 3: Loading phrases — slow, with pauses
+    timers.push(setTimeout(() => setPhraseIndex(0), 3800));
+    timers.push(setTimeout(() => setPhraseIndex(1), 5200));
+    timers.push(setTimeout(() => setPhraseIndex(2), 6600));
+    timers.push(setTimeout(() => setPhraseIndex(3), 8000));
+
+    // Phase 4: Atmospheric pause — silence (1.5s)
+    timers.push(setTimeout(() => setPhase('pause'), 9000));
+
+    // Phase 5: Complete → enters presence screen
     timers.push(setTimeout(() => {
       setPhase('done');
       onComplete();
-    }, 3800));
+    }, 10500));
 
     return () => timers.forEach(clearTimeout);
   }, [onComplete]);
 
+  // Typing effect for loading phrases
   useEffect(() => {
-    if (phase !== 'loading') return;
-    const phrase = loadingPhrases[phraseIndex] || '';
+    if (phraseIndex < 0 || phraseIndex >= loadingPhrases.length) return;
+    const phrase = loadingPhrases[phraseIndex];
     let i = 0;
     setCurrentPhrase('');
 
@@ -49,10 +61,10 @@ export function BootScreen({ onComplete }: BootScreenProps) {
       } else {
         clearInterval(interval);
       }
-    }, 25);
+    }, 30);
 
     return () => clearInterval(interval);
-  }, [phraseIndex, phase]);
+  }, [phraseIndex]);
 
   return (
     <AnimatePresence>
@@ -60,106 +72,112 @@ export function BootScreen({ onComplete }: BootScreenProps) {
         <motion.div
           key="boot-screen"
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
+          transition={{ duration: 2, ease: [0.25, 0.46, 0.45, 0.94] }}
           className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background overflow-hidden"
         >
-          {/* Ambient glow */}
-          <div className="absolute inset-0">
-            <div
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full opacity-15"
-              style={{
-                background: 'radial-gradient(circle, rgba(74,158,255,0.12) 0%, transparent 70%)',
-              }}
-            />
-          </div>
+          {/* Ambient glow — very subtle */}
+          <div
+            className="absolute pointer-events-none"
+            style={{
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '400px',
+              height: '400px',
+              background: 'radial-gradient(circle, rgba(74,158,255,0.04) 0%, transparent 70%)',
+              animation: 'breathe 6s ease-in-out infinite',
+            }}
+          />
 
           {/* Content */}
           <div className="relative z-10 flex flex-col items-center">
             <AnimatePresence mode="wait">
-              {(phase === 'title' || phase === 'init') && (
+              {/* Black phase — just ambient */}
+              {phase === 'black' && (
+                <motion.div key="black" className="w-full h-full" />
+              )}
+
+              {/* Title */}
+              {phase === 'title' && (
                 <motion.div
                   key="title"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1.5, ease: 'easeOut' }}
                   className="flex flex-col items-center"
                 >
-                  <motion.div
-                    className="text-5xl font-extralight tracking-[0.5em] text-foreground"
+                  <motion.h1
+                    className="text-4xl font-extralight tracking-[0.6em] text-foreground"
+                    style={{ fontFamily: 'var(--font-mono)' }}
                   >
                     EVE
-                  </motion.div>
+                  </motion.h1>
 
                   <motion.div
                     initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 80, opacity: 1 }}
-                    transition={{ delay: 0.3, duration: 0.5 }}
-                    className="h-px mt-4"
+                    animate={{ width: 60, opacity: 0.4 }}
+                    transition={{ delay: 0.5, duration: 1 }}
+                    className="h-px mt-5"
                     style={{ background: 'linear-gradient(90deg, transparent, rgba(74,158,255,0.4), transparent)' }}
                   />
                 </motion.div>
               )}
 
-              {phase === 'init' && (
-                <motion.p
-                  key="init"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.4 }}
-                  className="text-xs text-muted mt-6 tracking-[0.2em] uppercase"
-                >
-                  Initializing systems...
-                </motion.p>
-              )}
-
+              {/* Loading */}
               {phase === 'loading' && (
                 <motion.div
                   key="loading"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex flex-col items-center mt-6"
+                  transition={{ duration: 0.8 }}
+                  className="flex flex-col items-center"
                 >
-                  <p className="text-xs text-muted tracking-wider font-mono h-5">
+                  <motion.h1
+                    className="text-4xl font-extralight tracking-[0.6em] text-foreground mb-8"
+                    style={{ fontFamily: 'var(--font-mono)' }}
+                  >
+                    EVE
+                  </motion.h1>
+
+                  <p className="text-[11px] text-muted tracking-[0.15em] font-light h-5">
                     {currentPhrase}
-                    <span className="inline-block w-1 h-3 bg-accent/60 ml-0.5 animate-pulse" />
+                    <span className="inline-block w-0.5 h-3 bg-accent/40 ml-0.5 animate-pulse" />
                   </p>
                 </motion.div>
               )}
 
-              {phase === 'welcome' && (
+              {/* Atmospheric pause */}
+              {phase === 'pause' && (
                 <motion.div
-                  key="welcome"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  key="pause"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.5 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-                  className="flex flex-col items-center mt-6"
+                  transition={{ duration: 1 }}
+                  className="flex flex-col items-center"
                 >
-                  <p className="text-base text-foreground font-light tracking-wide">
-                    Welcome back, <span className="text-gradient-gold font-medium">Joseph</span>.
-                  </p>
+                  <motion.h1
+                    className="text-4xl font-extralight tracking-[0.6em] text-foreground"
+                    style={{ fontFamily: 'var(--font-mono)' }}
+                  >
+                    EVE
+                  </motion.h1>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
 
-          {/* Bottom HUD */}
-          <div className="absolute bottom-8 left-0 right-0 flex justify-center">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.25 }}
-              transition={{ delay: 0.5, duration: 0.5 }}
-              className="flex items-center gap-6 text-[9px] text-muted tracking-[0.2em] uppercase"
-            >
-              <span>System Ready</span>
-              <span className="w-1 h-1 rounded-full bg-accent/40" />
-              <span>v2.0</span>
-            </motion.div>
-          </div>
+          {/* Bottom HUD — very subtle */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.15 }}
+            transition={{ delay: 4, duration: 2 }}
+            className="absolute bottom-10 text-[8px] text-muted tracking-[0.3em] uppercase"
+          >
+            System Ready
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
