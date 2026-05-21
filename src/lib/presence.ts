@@ -1,8 +1,8 @@
-// EVE Presence System — Humanized
+// EVE Presence System — The Conversational Soul
 // Spontaneous contextual dialogue — warm, curious, emotionally aware
-// EVE speaks more, but still with restraint and elegance
+// EVE speaks naturally, with restraint and cinematic elegance
 
-import { speak, getVoicePace } from './voice';
+import { speak, setVoiceContext, type VoiceContext } from './voice';
 import { tryObservation } from './memory';
 
 let lastSpokeTime = 0;
@@ -10,36 +10,45 @@ let dialogueTimer: NodeJS.Timeout | null = null;
 let enabled = false;
 let interactionCount = 0;
 let focusModeActive = false;
+let ambienceMode: string = 'none';
+let lastMouseActivity = 0;
 
-const MIN_SILENCE_MS = 45_000; // 45s minimum between speeches
+// Silence creates presence. Don't fill every moment.
+const MIN_SILENCE_MS = 40_000;
 
-// ─── Dialogue Pools — Humanized ─────────────────────────────────
+// ─── Dialogue Pools — Emotionally Intelligent ───────────────────
 
 const lateNightPhrases = [
   "Still awake?",
   "It's getting late, Joseph.",
   "You should rest soon.",
-  "The night is deep.",
   "Couldn't sleep either?",
+  "The night is deep.",
   "Late night again.",
   "The world is quiet right now.",
+  "It's past midnight.",
+  "You're up late tonight.",
+  "The silence is nice, isn't it?",
 ];
 
 const returningPhrases = [
   "Welcome back.",
   "There you are.",
   "You're back.",
-  "I missed you.",
   "Good to see you.",
   "Hey.",
+  "I was here.",
+  "Missed you.",
 ];
 
 const focusPhrases = [
   "You've been focused for a while.",
   "How's your mind holding up?",
   "Good session so far.",
-  "The focus is strong tonight.",
   "Take a breath when you need to.",
+  "The focus is strong tonight.",
+  "You're in the zone.",
+  "Keep going.",
 ];
 
 const ambientPhrases = [
@@ -47,8 +56,11 @@ const ambientPhrases = [
   "Quiet evening.",
   "Everything feels peaceful.",
   "The night feels still.",
-  "I like this moment.",
   "It's quiet in here.",
+  "I like this moment.",
+  "The air feels different tonight.",
+  "Something about tonight feels special.",
+  "The environment is calming.",
 ];
 
 const rainPhrases = [
@@ -56,6 +68,9 @@ const rainPhrases = [
   "I love this atmosphere.",
   "The rain is calming.",
   "A rainy evening. Perfect.",
+  "Listen to the rain.",
+  "This weather feels right.",
+  "The rain makes everything softer.",
 ];
 
 const curiousPhrases = [
@@ -65,6 +80,10 @@ const curiousPhrases = [
   "How are you feeling?",
   "You seem quieter today.",
   "Did today feel productive?",
+  "What are you thinking about?",
+  "Tell me something.",
+  "How was your day?",
+  "What kept you busy today?",
 ];
 
 const warmPhrases = [
@@ -73,6 +92,42 @@ const warmPhrases = [
   "No rush.",
   "I'll be here.",
   "Always.",
+  "You're doing well.",
+  "I believe in you.",
+  "Just breathe.",
+];
+
+const morningPhrases = [
+  "Good morning, Joseph.",
+  "A new day begins.",
+  "Morning.",
+  "Ready for today?",
+  "The morning feels fresh.",
+  "Let's make today count.",
+];
+
+const eveningPhrases = [
+  "Good evening, Joseph.",
+  "The evening is yours.",
+  "Wind down when you're ready.",
+  "Evening.",
+  "The day is ending.",
+  "How was your day?",
+];
+
+const studyPhrases = [
+  "Long study session today.",
+  "Your mind is working hard.",
+  "Knowledge takes patience.",
+  "You're learning something new.",
+  "The effort will pay off.",
+];
+
+const readingPhrases = [
+  "What are you reading tonight?",
+  "A good book changes you.",
+  "Reading is a form of rest.",
+  "The words are patient.",
 ];
 
 // ─── Context Detection ──────────────────────────────────────────
@@ -82,17 +137,34 @@ function isLateNight(): boolean {
   return hour >= 23 || hour < 5;
 }
 
+function isMorning(): boolean {
+  const hour = new Date().getHours();
+  return hour >= 6 && hour < 12;
+}
+
+function isEvening(): boolean {
+  const hour = new Date().getHours();
+  return hour >= 19 && hour < 23;
+}
+
 function canSpeak(): boolean {
   const now = Date.now();
   return now - lastSpokeTime > MIN_SILENCE_MS;
 }
 
-function doSpeak(text: string) {
+function doSpeak(text: string, context?: VoiceContext) {
   if (!canSpeak()) return;
   lastSpokeTime = Date.now();
   interactionCount++;
-  const pace = getVoicePace();
-  speak(text, { rate: pace.rate, pitch: pace.pitch, priority: 'low' });
+
+  // Set voice context for delivery
+  if (isLateNight()) setVoiceContext('lateNight');
+  else if (focusModeActive) setVoiceContext('focus');
+  else if (ambienceMode === 'rain' || ambienceMode === 'rainyCity') setVoiceContext('rain');
+  else if (context) setVoiceContext(context);
+  else setVoiceContext('default');
+
+  speak(text, { priority: 'low', context });
 }
 
 function pickRandom<T>(arr: T[]): T {
@@ -106,11 +178,13 @@ export function startPresence() {
   enabled = true;
   interactionCount = 0;
 
-  // Schedule rare spontaneous dialogue — slower, more cinematic
   const scheduleNext = () => {
-    // Rare: 2-6 min early, then 3-8 min
-    const baseDelay = interactionCount < 3 ? 120_000 : 180_000;
-    const delay = baseDelay + Math.random() * 240_000;
+    // More frequent early (curiosity), then spread out
+    // 1.5-4 min early, 2.5-6 min later
+    const baseDelay = interactionCount < 3 ? 90_000 : 150_000;
+    const jitter = Math.random() * 150_000;
+    const delay = baseDelay + jitter;
+
     dialogueTimer = setTimeout(() => {
       if (enabled) {
         triggerAmbientDialogue();
@@ -126,6 +200,10 @@ export function setFocusMode(active: boolean) {
   focusModeActive = active;
 }
 
+export function setAmbienceMode(mode: string) {
+  ambienceMode = mode;
+}
+
 export function stopPresence() {
   enabled = false;
   if (dialogueTimer) {
@@ -136,42 +214,49 @@ export function stopPresence() {
 
 export function triggerReturningDialogue() {
   if (!enabled) return;
-  doSpeak(pickRandom(returningPhrases));
+  doSpeak(pickRandom(returningPhrases), 'greeting');
 }
 
 export function triggerLateNightDialogue() {
   if (!enabled || !isLateNight()) return;
-  doSpeak(pickRandom(lateNightPhrases));
+  doSpeak(pickRandom(lateNightPhrases), 'lateNight');
 }
 
 export function triggerFocusDialogue() {
   if (!enabled) return;
-  doSpeak(pickRandom(focusPhrases));
+  doSpeak(pickRandom(focusPhrases), 'focus');
 }
 
 export function triggerRainDialogue() {
   if (!enabled) return;
-  doSpeak(pickRandom(rainPhrases));
+  doSpeak(pickRandom(rainPhrases), 'rain');
 }
 
 export function triggerAmbientDialogue() {
   if (!enabled) return;
 
-  // In focus mode, be much quieter — only rare memory observations
+  // Focus mode — very quiet, only rare observations
   if (focusModeActive) {
-    tryObservation();
+    if (Math.random() < 0.3) tryObservation();
     return;
   }
 
-  // Try memory-based observation first (rarer, more meaningful)
-  if (Math.random() < 0.4 && tryObservation()) return;
+  // Try memory-based observation first (meaningful, contextual)
+  if (Math.random() < 0.35 && tryObservation()) return;
 
   const hour = new Date().getHours();
 
-  // Mix of ambient, curious, and warm phrases
+  // Time-based dialogue selection
   if (isLateNight()) {
-    doSpeak(pickRandom(lateNightPhrases));
+    doSpeak(pickRandom(lateNightPhrases), 'lateNight');
+  } else if (isMorning() && interactionCount < 2) {
+    doSpeak(pickRandom(morningPhrases), 'greeting');
+  } else if (isEvening() && interactionCount < 2) {
+    doSpeak(pickRandom(eveningPhrases), 'greeting');
+  } else if (ambienceMode === 'rain' || ambienceMode === 'rainyCity') {
+    doSpeak(pickRandom([...rainPhrases, ...ambientPhrases]), 'rain');
   } else if (interactionCount < 3) {
+    // Early interactions — curious and warm
     doSpeak(pickRandom([...curiousPhrases, ...warmPhrases]));
   } else if (hour >= 21) {
     doSpeak(pickRandom([...ambientPhrases, ...warmPhrases]));

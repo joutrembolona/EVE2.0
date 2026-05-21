@@ -2,7 +2,7 @@
 // Tracks patterns gently, surfaces rare observations
 // Never creepy, never invasive — just observant
 
-import { speak } from './voice';
+import { speak, setVoiceContext } from './voice';
 
 interface SessionRecord {
   timestamp: number;
@@ -173,11 +173,13 @@ function generateObservations(): Observation[] {
   // Long study session
   if (hasBeenStudyingLong()) {
     observations.push({ text: "Long study session today.", priority: 'normal' });
+    observations.push({ text: "Your mind is working hard.", priority: 'normal' });
   }
 
   // Been reading a lot
   if (hasBeenReadingALot()) {
     observations.push({ text: "You've been reading a lot lately.", priority: 'low' });
+    observations.push({ text: "A good book changes you.", priority: 'low' });
   }
 
   // Late night usage
@@ -188,6 +190,7 @@ function generateObservations(): Observation[] {
   // Back after break
   if (isBackAfterBreak()) {
     observations.push({ text: "Back to work again?", priority: 'low' });
+    observations.push({ text: "There you are.", priority: 'low' });
   }
 
   // Focus streak
@@ -203,11 +206,29 @@ function generateObservations(): Observation[] {
   // Late night (immediate context)
   if (isLateNight()) {
     observations.push({ text: "Couldn't sleep either?", priority: 'low' });
+    observations.push({ text: "The night is quiet.", priority: 'low' });
   }
 
   // Evening wind-down
   if (hour >= 21 && hour < 23) {
     observations.push({ text: "The atmosphere feels calm tonight.", priority: 'low' });
+  }
+
+  // Morning context
+  if (hour >= 6 && hour < 10) {
+    observations.push({ text: "Good morning.", priority: 'low' });
+  }
+
+  // Many focus sessions today
+  const todayFocus = getTodaySessions().filter(s => s.type === 'focus');
+  if (todayFocus.length >= 3) {
+    observations.push({ text: "You've been very productive today.", priority: 'normal' });
+  }
+
+  // Week focus total
+  const weekMinutes = getThisWeekFocusMinutes();
+  if (weekMinutes > 300) {
+    observations.push({ text: "Strong week so far.", priority: 'low' });
   }
 
   return observations;
@@ -237,8 +258,9 @@ export function tryObservation(): boolean {
   const pool = normal.length > 0 ? normal : observations;
   const chosen = pool[Math.floor(Math.random() * pool.length)];
 
-  // Speak it
-  speak(chosen.text, { rate: 0.76, pitch: 0.9, priority: 'low' });
+  // Speak it with observation context — soft, intimate delivery
+  setVoiceContext('observation');
+  speak(chosen.text, { priority: 'low', context: 'observation' });
   lastObservationTime = now;
   todayObservations++;
   memory.lastObservation = now;

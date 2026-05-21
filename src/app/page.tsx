@@ -25,7 +25,7 @@ import { getStatusText } from '@/lib/contextualPhrases';
 import { playSound, setSoundEnabled } from '@/lib/sounds';
 import { speak, initVoice } from '@/lib/voice';
 import { getGreetingPhrase } from '@/lib/contextualPhrases';
-import { startPresence, stopPresence, triggerReturningDialogue, setFocusMode } from '@/lib/presence';
+import { startPresence, stopPresence, triggerReturningDialogue, setFocusMode, setAmbienceMode } from '@/lib/presence';
 import { getAtmosphere, applyAtmosphere } from '@/lib/atmosphere';
 import { EVEChat } from '@/components/EVEChat';
 import { Command, Settings, MessageCircle } from 'lucide-react';
@@ -126,6 +126,7 @@ export default function EveApp() {
     // Track ambience for rain reactivity
     const isRain = settings.background === 'rain' || settings.background === 'rainyCity';
     root.setAttribute('data-ambience', isRain ? 'rain' : 'normal');
+    setAmbienceMode(settings.background);
   }, [settings, mounted]);
 
   // Keyboard shortcuts
