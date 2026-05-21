@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { EVEPresence } from './EVEPresence';
 import { getTimePhrase, getGreetingPhrase } from '@/lib/contextualPhrases';
+import { getTimeGreeting, getTimeSecondary } from '@/lib/atmosphere';
 import { ArrowRight } from 'lucide-react';
 
 interface PresenceScreenProps {
@@ -14,7 +15,7 @@ interface PresenceScreenProps {
 export function PresenceScreen({ onEnterWorkspace }: PresenceScreenProps) {
   const [time, setTime] = useState('');
   const [greeting, setGreeting] = useState('');
-  const [phrase, setPhrase] = useState('');
+  const [secondary, setSecondary] = useState('');
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -22,8 +23,8 @@ export function PresenceScreen({ onEnterWorkspace }: PresenceScreenProps) {
       setTime(format(new Date(), 'HH:mm'));
     };
     update();
-    setGreeting(getGreetingPhrase());
-    setPhrase(getTimePhrase());
+    setGreeting(getTimeGreeting());
+    setSecondary(getTimeSecondary());
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, []);
@@ -103,16 +104,16 @@ export function PresenceScreen({ onEnterWorkspace }: PresenceScreenProps) {
       {/* Canvas particles */}
       <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" />
 
-      {/* Central ambient glow */}
+      {/* Central ambient glow — time-reactive */}
       <div
         className="absolute pointer-events-none"
         style={{
           top: '40%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: '500px',
-          height: '500px',
-          background: 'radial-gradient(circle, rgba(74,158,255,0.04) 0%, transparent 60%)',
+          width: '600px',
+          height: '600px',
+          background: 'radial-gradient(circle, rgba(196,122,234,0.04) 0%, transparent 60%)',
           animation: 'breathe 8s ease-in-out infinite',
         }}
       />
@@ -132,14 +133,14 @@ export function PresenceScreen({ onEnterWorkspace }: PresenceScreenProps) {
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1, duration: 1.2, ease: 'easeOut' }}
+          transition={{ delay: 1, duration: 1.5, ease: 'easeOut' }}
           className="text-center"
         >
           <h1
-            className="text-8xl font-extralight tracking-[0.08em] text-foreground"
+            className="text-7xl font-extralight tracking-[0.1em] text-foreground/80"
             style={{
               fontFamily: 'var(--font-mono)',
-              animation: 'clockGlow 5s ease-in-out infinite',
+              animation: 'clockGlow 6s ease-in-out infinite',
             }}
           >
             {time}
@@ -151,13 +152,13 @@ export function PresenceScreen({ onEnterWorkspace }: PresenceScreenProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.5, duration: 1.5 }}
-          className="text-center space-y-3"
+          className="text-center space-y-4"
         >
           <p className="text-lg text-foreground font-extralight tracking-wide">
             {greeting}
           </p>
-          <p className="text-sm text-muted italic font-light tracking-wide max-w-sm">
-            {phrase}
+          <p className="text-xs text-muted/50 font-light tracking-[0.2em] uppercase">
+            {secondary}
           </p>
         </motion.div>
 
@@ -165,15 +166,15 @@ export function PresenceScreen({ onEnterWorkspace }: PresenceScreenProps) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 3, duration: 1.5 }}
-          className="pt-8"
+          transition={{ delay: 3.5, duration: 2 }}
+          className="pt-12"
         >
           <button
             onClick={onEnterWorkspace}
-            className="flex items-center gap-2 text-xs text-muted hover:text-accent transition-colors duration-500 group"
+            className="flex items-center gap-2 text-[10px] text-muted/40 hover:text-muted transition-colors duration-700 group"
           >
-            <span className="tracking-[0.15em] uppercase font-light">Enter Workspace</span>
-            <ArrowRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <span className="tracking-[0.2em] uppercase font-light">Enter</span>
+            <ArrowRight size={10} className="opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           </button>
         </motion.div>
       </div>
@@ -181,9 +182,9 @@ export function PresenceScreen({ onEnterWorkspace }: PresenceScreenProps) {
       {/* Bottom atmospheric line */}
       <motion.div
         initial={{ opacity: 0 }}
-        animate={{ opacity: 0.1 }}
-        transition={{ delay: 4, duration: 2 }}
-        className="absolute bottom-10 text-[8px] text-muted tracking-[0.3em] uppercase"
+        animate={{ opacity: 0.06 }}
+        transition={{ delay: 4, duration: 3 }}
+        className="absolute bottom-10 text-[7px] text-muted tracking-[0.4em] uppercase"
       >
         EVE OS
       </motion.div>

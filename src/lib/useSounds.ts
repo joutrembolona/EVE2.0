@@ -23,6 +23,8 @@ export function useSounds() {
   const click = useCallback(() => playSound('click'), []);
   const confirm = useCallback(() => playSound('confirm'), []);
   const transition = useCallback(() => playSound('transition'), []);
+  const focusActivate = useCallback(() => playSound('focusActivate'), []);
+  const focusDeactivate = useCallback(() => playSound('focusDeactivate'), []);
 
-  return { hover, click, confirm, transition, sounds };
+  return { hover, click, confirm, transition, focusActivate, focusDeactivate, sounds };
 }

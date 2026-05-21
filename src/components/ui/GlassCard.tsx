@@ -19,16 +19,21 @@ export function GlassCard({ children, className, hover = false, onClick, padding
     <motion.div
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
       onClick={onClick}
       className={cn(
-        'glass rounded-2xl atmo-layer',
+        'rounded-xl border border-border/30 transition-all duration-500',
+        'bg-surface/30',
         paddingMap[padding],
-        hover && 'cursor-pointer',
+        hover && 'cursor-pointer hover:border-border-light/40 hover:bg-surface/40',
         onClick && 'cursor-pointer',
         glow && 'glow-accent',
         className
       )}
+      style={{
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+      }}
     >
       {children}
     </motion.div>

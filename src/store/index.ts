@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { EVESettings } from '@/components/SettingsPanel';
 import { defaultSettings } from '@/components/SettingsPanel';
+import { recordSession } from '@/lib/memory';
 
 // Types
 export type ModuleId = 'home' | 'habits' | 'focus' | 'reading' | 'studies' | 'workout' | 'devotional' | 'goals' | 'journal';
@@ -248,22 +249,26 @@ export const useStore = create<AppState>()(
 
       // Focus
       focusSessions: [],
-      addFocusSession: (session) =>
+      addFocusSession: (session) => {
+        recordSession('focus', session.duration);
         set((state) => ({
           focusSessions: [...state.focusSessions, { ...session, id: generateId() }],
           totalFocusMinutes: state.totalFocusMinutes + Math.round(session.duration / 60),
-        })),
+        }));
+      },
       totalFocusMinutes: 0,
 
       // Reading
       books: [],
-      addBook: (book) =>
+      addBook: (book) => {
+        recordSession('reading');
         set((state) => ({
           books: [
             ...state.books,
             { ...book, id: generateId(), startedAt: new Date().toISOString(), notes: [], excerpts: [] },
           ],
-        })),
+        }));
+      },
       updateBookProgress: (bookId, page) =>
         set((state) => ({
           books: state.books.map((b) => (b.id === bookId ? { ...b, currentPage: page } : b)),
@@ -295,7 +300,8 @@ export const useStore = create<AppState>()(
               : a
           ),
         })),
-      logStudySession: (areaId, subjectId, session) =>
+      logStudySession: (areaId, subjectId, session) => {
+        recordSession('study', session.duration);
         set((state) => ({
           studyAreas: state.studyAreas.map((a) =>
             a.id === areaId
@@ -313,14 +319,17 @@ export const useStore = create<AppState>()(
                 }
               : a
           ),
-        })),
+        }));
+      },
 
       // Workout
       workouts: [],
-      addWorkout: (workout) =>
+      addWorkout: (workout) => {
+        recordSession('workout', workout.duration);
         set((state) => ({
           workouts: [...state.workouts, { ...workout, id: generateId() }],
-        })),
+        }));
+      },
       workoutTemplates: [],
       addWorkoutTemplate: (template) =>
         set((state) => ({
@@ -355,13 +364,15 @@ export const useStore = create<AppState>()(
 
       // Journal
       journalEntries: [],
-      addJournalEntry: (entry) =>
+      addJournalEntry: (entry) => {
+        recordSession('journal');
         set((state) => ({
           journalEntries: [
             ...state.journalEntries,
             { ...entry, id: generateId(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
           ],
-        })),
+        }));
+      },
       updateJournalEntry: (id, updates) =>
         set((state) => ({
           journalEntries: state.journalEntries.map((e) =>
@@ -373,10 +384,12 @@ export const useStore = create<AppState>()(
 
       // Devotional
       devotionalEntries: [],
-      addDevotionalEntry: (entry) =>
+      addDevotionalEntry: (entry) => {
+        recordSession('devotional');
         set((state) => ({
           devotionalEntries: [...state.devotionalEntries, { ...entry, id: generateId() }],
-        })),
+        }));
+      },
 
       // Modules
       modules: defaultModules,

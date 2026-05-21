@@ -78,50 +78,73 @@ function playNoise(duration: number, volume: number, filterFreq = 4000) {
 // ─── Public Sound API ───────────────────────────────────────────
 
 export const sounds = {
-  // Soft hover — very subtle high tone
+  // Soft hover — whisper-quiet high tone
   hover() {
-    playTone(2200, 0.08, 0.015, 'sine', 0.005, 0.02);
+    playTone(2200, 0.08, 0.01, 'sine', 0.005, 0.02);
   },
 
-  // Click — short satisfying tap
+  // Click — soft satisfying tap
   click() {
-    playTone(1800, 0.06, 0.03, 'sine', 0.003, 0.015);
-    playNoise(0.03, 0.01, 6000);
+    playTone(1800, 0.06, 0.02, 'sine', 0.003, 0.015);
+    playNoise(0.03, 0.006, 6000);
   },
 
   // Confirm — gentle ascending chime
   confirm() {
-    playTone(880, 0.15, 0.025, 'sine', 0.005, 0.04);
-    setTimeout(() => playTone(1320, 0.12, 0.02, 'sine', 0.005, 0.04), 60);
+    playTone(880, 0.18, 0.02, 'sine', 0.005, 0.04);
+    setTimeout(() => playTone(1320, 0.15, 0.015, 'sine', 0.005, 0.04), 80);
   },
 
-  // Transition — smooth whoosh
+  // Transition — smooth atmospheric whoosh
   transition() {
-    playNoise(0.2, 0.015, 2000);
-    playTone(440, 0.2, 0.01, 'sine', 0.02, 0.08);
+    playNoise(0.25, 0.012, 1800);
+    playTone(440, 0.25, 0.008, 'sine', 0.03, 0.1);
   },
 
-  // Startup — ascending holographic chime
+  // Startup — ascending holographic chime, slower and warmer
   startup() {
-    playTone(440, 0.3, 0.02, 'sine', 0.01, 0.08);
-    setTimeout(() => playTone(660, 0.25, 0.018, 'sine', 0.01, 0.08), 120);
-    setTimeout(() => playTone(880, 0.2, 0.015, 'sine', 0.01, 0.08), 240);
+    playTone(330, 0.4, 0.015, 'sine', 0.02, 0.1);
+    setTimeout(() => playTone(440, 0.35, 0.013, 'sine', 0.02, 0.1), 200);
+    setTimeout(() => playTone(660, 0.3, 0.012, 'sine', 0.02, 0.1), 400);
+    setTimeout(() => playTone(880, 0.25, 0.01, 'sine', 0.02, 0.1), 600);
   },
 
   // Error — soft low tone
   error() {
-    playTone(220, 0.2, 0.02, 'sine', 0.005, 0.06);
+    playTone(220, 0.25, 0.015, 'sine', 0.005, 0.06);
   },
 
   // Notification — gentle bell
   notification() {
-    playTone(1200, 0.2, 0.02, 'sine', 0.005, 0.06);
-    playTone(1800, 0.15, 0.012, 'sine', 0.01, 0.05);
+    playTone(1200, 0.25, 0.015, 'sine', 0.005, 0.06);
+    setTimeout(() => playTone(1800, 0.2, 0.01, 'sine', 0.01, 0.05), 100);
   },
 
   // Ambient pulse — very subtle low hum
   pulse() {
-    playTone(110, 0.4, 0.008, 'sine', 0.1, 0.15);
+    playTone(110, 0.5, 0.006, 'sine', 0.15, 0.2);
+  },
+
+  // Focus mode activation — calming descending tone
+  focusActivate() {
+    playTone(660, 0.3, 0.015, 'sine', 0.02, 0.1);
+    setTimeout(() => playTone(440, 0.4, 0.012, 'sine', 0.02, 0.12), 150);
+    setTimeout(() => playTone(330, 0.5, 0.01, 'sine', 0.03, 0.15), 350);
+  },
+
+  // Focus mode deactivate — gentle ascending tone
+  focusDeactivate() {
+    playTone(330, 0.3, 0.012, 'sine', 0.02, 0.1);
+    setTimeout(() => playTone(440, 0.25, 0.013, 'sine', 0.02, 0.08), 150);
+    setTimeout(() => playTone(660, 0.2, 0.015, 'sine', 0.02, 0.06), 300);
+  },
+
+  // Boot ambient — deep atmospheric rise
+  bootAmbient() {
+    playTone(55, 1.5, 0.008, 'sine', 0.3, 0.5);
+    playTone(110, 1.2, 0.006, 'sine', 0.2, 0.4);
+    setTimeout(() => playTone(165, 1.0, 0.005, 'sine', 0.2, 0.4), 300);
+    setTimeout(() => playTone(220, 0.8, 0.004, 'sine', 0.2, 0.3), 600);
   },
 };
 

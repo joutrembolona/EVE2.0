@@ -27,16 +27,23 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
     <motion.aside
       initial={{ x: -20, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
       className={cn(
-        'h-screen flex flex-col glass border-r border-border transition-all duration-300 relative z-20',
-        sidebarCollapsed ? 'w-[72px]' : 'w-[220px]'
+        'h-screen flex flex-col relative z-20',
+        'bg-transparent border-r border-border/30',
+        'transition-all duration-700 ease-out',
+        sidebarCollapsed ? 'w-[60px]' : 'w-[200px]'
       )}
+      style={{
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        background: 'rgba(18, 16, 26, 0.15)',
+      }}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 h-16 border-b border-border shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-accent/20 to-accent/5 border border-accent/20 flex items-center justify-center">
-          <span className="text-accent text-xs font-semibold tracking-wider">E</span>
+      <div className="flex items-center gap-3 px-4 h-14 shrink-0">
+        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent/15 to-accent/5 border border-accent/10 flex items-center justify-center">
+          <span className="text-accent text-[10px] font-semibold tracking-wider">E</span>
         </div>
         <AnimatePresence>
           {!sidebarCollapsed && (
@@ -44,7 +51,8 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
-              className="text-sm font-medium text-gradient-holographic tracking-[0.3em] uppercase"
+              transition={{ duration: 0.4 }}
+              className="text-[11px] font-medium text-gradient-holographic tracking-[0.3em] uppercase"
             >
               EVE
             </motion.span>
@@ -53,7 +61,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
         {visibleModules.map((mod) => {
           const Icon = iconMap[mod.icon] || LayoutDashboard;
           const isActive = activeModule === mod.id;
@@ -61,33 +69,33 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
           return (
             <motion.button
               key={mod.id}
-              whileHover={{ x: 2 }}
+              whileHover={{ x: 1 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => { setActiveModule(mod.id); playSound('click'); }}
               onMouseEnter={() => playSound('hover')}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-200 relative group',
+                'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-300 relative group',
                 isActive
-                  ? 'bg-accent/8 text-accent'
-                  : 'text-muted hover:text-foreground hover:bg-surface-2/50'
+                  ? 'bg-accent/6 text-accent'
+                  : 'text-muted/60 hover:text-muted hover:bg-surface-2/30'
               )}
             >
               {isActive && (
                 <motion.div
                   layoutId="sidebar-active"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 bg-accent rounded-r-full"
-                  style={{ boxShadow: '0 0 8px rgba(74,158,255,0.3)' }}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[1.5px] h-3.5 bg-accent/60 rounded-r-full"
                   transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                 />
               )}
-              <Icon size={16} className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
+              <Icon size={14} className={cn('shrink-0 transition-opacity duration-300', isActive ? 'opacity-80' : 'opacity-40 group-hover:opacity-60')} />
               <AnimatePresence>
                 {!sidebarCollapsed && (
                   <motion.span
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -10 }}
-                    className="truncate text-[13px]"
+                    transition={{ duration: 0.3 }}
+                    className="truncate text-[12px] font-light"
                   >
                     {mod.name}
                   </motion.span>
@@ -99,19 +107,19 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
       </nav>
 
       {/* EVE Presence & Collapse */}
-      <div className="p-3 border-t border-border space-y-2">
+      <div className="p-2 space-y-1">
         {!sidebarCollapsed && (
-          <div className="flex items-center gap-2 px-2 py-1.5">
+          <div className="flex items-center gap-2 px-2 py-1">
             <EVEPresence size="sm" />
-            <span className="text-[10px] text-muted tracking-wider">Online</span>
+            <span className="text-[9px] text-muted/40 tracking-wider">Online</span>
           </div>
         )}
 
         <button
           onClick={() => { toggleSidebar(); playSound('click'); }}
-          className="w-full flex items-center justify-center py-2 rounded-xl text-muted hover:text-foreground hover:bg-surface-2/50 transition-colors"
+          className="w-full flex items-center justify-center py-1.5 rounded-lg text-muted/40 hover:text-muted transition-colors duration-300"
         >
-          {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          {sidebarCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
         </button>
       </div>
     </motion.aside>

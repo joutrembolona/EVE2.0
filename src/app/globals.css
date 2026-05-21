@@ -45,8 +45,8 @@ body {
    ============================================ */
 
 :root {
-  --glass-opacity: 0.35;
-  --glass-blur: 24px;
+  --glass-opacity: 0.2;
+  --glass-blur: 12px;
   --particle-opacity: 0.04;
 }
 
@@ -144,19 +144,16 @@ body {
   background: rgba(18, 16, 26, var(--glass-opacity));
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid rgba(180, 120, 200, 0.04);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.02) inset,
-    0 8px 40px rgba(0, 0, 0, 0.25),
-    0 0 1px rgba(180, 120, 200, 0.05);
+  border: 1px solid rgba(180, 120, 200, 0.03);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.01) inset;
 }
 
 .glass-light {
-  background: rgba(26, 23, 38, calc(var(--glass-opacity) * 0.5));
+  background: rgba(26, 23, 38, calc(var(--glass-opacity) * 0.4));
   backdrop-filter: blur(calc(var(--glass-blur) * 0.5));
   -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.5));
-  border: 1px solid rgba(180, 120, 200, 0.03);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(180, 120, 200, 0.02);
+  box-shadow: none;
 }
 
 /* Theme glass overrides */
@@ -365,6 +362,64 @@ body {
 [data-theme="neonSilence"] .glass { border-color: rgba(0,229,200,0.03); }
 [data-theme="neonSilence"] .glow-accent { box-shadow: 0 0 20px rgba(0,229,200,0.06); }
 [data-theme="neonSilence"] ::selection { background: rgba(0,229,200,0.2); }
+
+/* ============================================
+   TIME-OF-DAY ATMOSPHERE
+   ============================================ */
+
+[data-time="morning"] .env-base {
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(255,200,150,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 60%, rgba(255,230,200,0.03) 0%, transparent 40%);
+  opacity: 0.5;
+}
+
+[data-time="afternoon"] .env-base {
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(200,220,255,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 70%, rgba(196,122,234,0.03) 0%, transparent 40%);
+  opacity: 0.6;
+}
+
+[data-time="evening"] .env-base {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(196,122,234,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(232,160,192,0.04) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 80%, rgba(180,120,200,0.03) 0%, transparent 50%);
+  opacity: 0.65;
+}
+
+[data-time="lateNight"] .env-base {
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(100,80,140,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 20% 80%, rgba(80,60,120,0.03) 0%, transparent 40%);
+  opacity: 0.4;
+}
+
+[data-time="lateNight"] .env-light-shaft {
+  opacity: 0.3;
+}
+
+[data-time="lateNight"] .env-fog {
+  opacity: 0.3;
+}
+
+[data-time="morning"] .env-light-shaft {
+  background: linear-gradient(180deg, rgba(255,220,180,0.02) 0%, rgba(255,220,180,0.01) 40%, transparent 70%);
+}
+
+/* Focus mode — calmer, dimmer */
+[data-focus="active"] .env-base { opacity: 0.3; }
+[data-focus="active"] .env-light-shaft { opacity: 0.2; }
+[data-focus="active"] .env-fog { opacity: 0.2; }
+[data-focus="active"] .noise-overlay { opacity: 0.008; }
+
+/* Rain mode — deeper atmosphere */
+[data-ambience="rain"] .env-base { opacity: 0.45; }
+[data-ambience="rain"] .env-fog { opacity: 0.6; }
+[data-ambience="rain"] .glass {
+  border-color: rgba(122,138,212,0.05);
+}
 
 /* ============================================
    ANIMATIONS

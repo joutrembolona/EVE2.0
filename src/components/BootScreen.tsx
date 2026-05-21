@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { playSound } from '@/lib/sounds';
 
 const loadingPhrases = [
   'Initializing environment...',
@@ -22,6 +23,9 @@ export function BootScreen({ onComplete }: BootScreenProps) {
 
   useEffect(() => {
     const timers: NodeJS.Timeout[] = [];
+
+    // Boot ambient sound — deep atmospheric rise
+    timers.push(setTimeout(() => playSound('bootAmbient'), 500));
 
     // Phase 1: Pure black with ambient atmosphere (1.5s)
     timers.push(setTimeout(() => setPhase('title'), 1500));

@@ -6,7 +6,8 @@ let synth: SpeechSynthesis | null = null;
 let speaking = false;
 let voiceQueue: string[] = [];
 let preferredVoice: SpeechSynthesisVoice | null = null;
-let volume = 0.5;
+let volume = 0.45; // Slightly quieter default
+let lastSpokeTime = 0;
 
 function getSynth(): SpeechSynthesis | null {
   if (typeof window === 'undefined') return null;
@@ -55,40 +56,57 @@ export function setVoiceVolume(v: number) {
   volume = Math.max(0, Math.min(1, v));
 }
 
-// Speak — soft, slow, with natural pauses
+// Speak — soft, intimate, with breathing pauses
 export function speak(text: string, options?: { rate?: number; pitch?: number; priority?: 'low' | 'normal' }) {
   const s = getSynth();
   if (!s) return;
 
   if (speaking && options?.priority === 'low') return;
 
+  // Add natural breathing pause between phrases
+  const now = Date.now();
+  const timeSinceLast = now - lastSpokeTime;
+  const breathingPause = timeSinceLast < 5000 ? 200 : 0; // Brief pause if speaking again soon
+
   s.cancel();
 
-  const utterance = new SpeechSynthesisUtterance(text);
+  const processText = (t: string) => {
+    const utterance = new SpeechSynthesisUtterance(t);
 
-  // Humanized delivery — slower, softer, with variation
-  utterance.rate = options?.rate ?? 0.78;
-  utterance.pitch = options?.pitch ?? 0.92;
-  utterance.volume = volume;
+    // Intimate delivery — slower, softer, with subtle variation
+    utterance.rate = options?.rate ?? 0.76;
+    utterance.pitch = options?.pitch ?? 0.88;
+    utterance.volume = volume * 0.9; // Slightly quieter
 
-  if (preferredVoice) {
-    utterance.voice = preferredVoice;
-  }
-
-  utterance.onstart = () => { speaking = true; };
-  utterance.onend = () => {
-    speaking = false;
-    if (voiceQueue.length > 0) {
-      const next = voiceQueue.shift();
-      if (next) {
-        // Small pause between queued phrases — feels more natural
-        setTimeout(() => speak(next), 300 + Math.random() * 500);
-      }
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
     }
-  };
-  utterance.onerror = () => { speaking = false; };
 
-  s.speak(utterance);
+    utterance.onstart = () => {
+      speaking = true;
+      lastSpokeTime = Date.now();
+    };
+    utterance.onend = () => {
+      speaking = false;
+      if (voiceQueue.length > 0) {
+        const next = voiceQueue.shift();
+        if (next) {
+          // Longer pause between queued phrases — feels more natural, like thinking
+          setTimeout(() => speak(next), 500 + Math.random() * 800);
+        }
+      }
+    };
+    utterance.onerror = () => { speaking = false; };
+
+    s.speak(utterance);
+  };
+
+  // Add subtle pause before speaking (breathing feel)
+  if (breathingPause > 0) {
+    setTimeout(() => processText(text), breathingPause);
+  } else {
+    processText(text);
+  }
 }
 
 export function queueSpeak(text: string) {
@@ -108,4 +126,16 @@ export function stopSpeaking() {
   if (s) s.cancel();
   speaking = false;
   voiceQueue = [];
+}
+
+// Get voice pace based on time of day
+export function getVoicePace(): { rate: number; pitch: number } {
+  const hour = new Date().getHours();
+  if (hour >= 23 || hour < 5) {
+    return { rate: 0.7, pitch: 0.82 }; // Late night: slower, quieter
+  }
+  if (hour >= 21) {
+    return { rate: 0.74, pitch: 0.86 }; // Evening: slightly slower
+  }
+  return { rate: 0.76, pitch: 0.88 }; // Default
 }

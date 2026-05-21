@@ -198,7 +198,7 @@ export function CommandBar({ isOpen, onClose, onOpenSettings }: CommandBarProps)
             initial={{ opacity: 0, scale: 0.96, y: -20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: -20 }}
-            transition={{ duration: 0.2, ease: [0.25, 0.46, 0.45, 0.94] }}
+            transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="fixed top-[20%] left-1/2 -translate-x-1/2 z-[95] w-full max-w-lg"
           >
             <div className="glass rounded-2xl overflow-hidden shadow-2xl shadow-black/40 border border-border-light">

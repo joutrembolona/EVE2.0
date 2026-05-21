@@ -2,12 +2,14 @@
 // Spontaneous contextual dialogue — warm, curious, emotionally aware
 // EVE speaks more, but still with restraint and elegance
 
-import { speak } from './voice';
+import { speak, getVoicePace } from './voice';
+import { tryObservation } from './memory';
 
 let lastSpokeTime = 0;
 let dialogueTimer: NodeJS.Timeout | null = null;
 let enabled = false;
 let interactionCount = 0;
+let focusModeActive = false;
 
 const MIN_SILENCE_MS = 45_000; // 45s minimum between speeches
 
@@ -89,7 +91,8 @@ function doSpeak(text: string) {
   if (!canSpeak()) return;
   lastSpokeTime = Date.now();
   interactionCount++;
-  speak(text, { rate: 0.78, pitch: 0.92, priority: 'low' });
+  const pace = getVoicePace();
+  speak(text, { rate: pace.rate, pitch: pace.pitch, priority: 'low' });
 }
 
 function pickRandom<T>(arr: T[]): T {
@@ -103,11 +106,11 @@ export function startPresence() {
   enabled = true;
   interactionCount = 0;
 
-  // Schedule rare spontaneous dialogue
+  // Schedule rare spontaneous dialogue — slower, more cinematic
   const scheduleNext = () => {
-    // More frequent at first, then spread out
-    const baseDelay = interactionCount < 3 ? 90_000 : 150_000;
-    const delay = baseDelay + Math.random() * 180_000; // 1.5-4.5 min
+    // Rare: 2-6 min early, then 3-8 min
+    const baseDelay = interactionCount < 3 ? 120_000 : 180_000;
+    const delay = baseDelay + Math.random() * 240_000;
     dialogueTimer = setTimeout(() => {
       if (enabled) {
         triggerAmbientDialogue();
@@ -117,6 +120,10 @@ export function startPresence() {
   };
 
   scheduleNext();
+}
+
+export function setFocusMode(active: boolean) {
+  focusModeActive = active;
 }
 
 export function stopPresence() {
@@ -150,13 +157,21 @@ export function triggerRainDialogue() {
 export function triggerAmbientDialogue() {
   if (!enabled) return;
 
+  // In focus mode, be much quieter — only rare memory observations
+  if (focusModeActive) {
+    tryObservation();
+    return;
+  }
+
+  // Try memory-based observation first (rarer, more meaningful)
+  if (Math.random() < 0.4 && tryObservation()) return;
+
   const hour = new Date().getHours();
 
   // Mix of ambient, curious, and warm phrases
   if (isLateNight()) {
     doSpeak(pickRandom(lateNightPhrases));
   } else if (interactionCount < 3) {
-    // Early interactions — more curious
     doSpeak(pickRandom([...curiousPhrases, ...warmPhrases]));
   } else if (hour >= 21) {
     doSpeak(pickRandom([...ambientPhrases, ...warmPhrases]));

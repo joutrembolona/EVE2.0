@@ -25,7 +25,8 @@ import { getStatusText } from '@/lib/contextualPhrases';
 import { playSound, setSoundEnabled } from '@/lib/sounds';
 import { speak, initVoice } from '@/lib/voice';
 import { getGreetingPhrase } from '@/lib/contextualPhrases';
-import { startPresence, stopPresence, triggerReturningDialogue } from '@/lib/presence';
+import { startPresence, stopPresence, triggerReturningDialogue, setFocusMode } from '@/lib/presence';
+import { getAtmosphere, applyAtmosphere } from '@/lib/atmosphere';
 import { EVEChat } from '@/components/EVEChat';
 import { Command, Settings, MessageCircle } from 'lucide-react';
 
@@ -57,6 +58,7 @@ export default function EveApp() {
   const [mounted, setMounted] = useState(false);
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const voiceSpokenRef = useRef(false);
+  const atmosphereRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -74,6 +76,29 @@ export default function EveApp() {
   useEffect(() => {
     setSoundEnabled(settings.soundEnabled);
   }, [settings.soundEnabled]);
+
+  // Atmosphere engine — update every minute
+  useEffect(() => {
+    if (!mounted) return;
+    const update = () => {
+      const atmo = getAtmosphere();
+      applyAtmosphere(atmo);
+    };
+    update();
+    atmosphereRef.current = setInterval(update, 60_000);
+    return () => {
+      if (atmosphereRef.current) clearInterval(atmosphereRef.current);
+    };
+  }, [mounted]);
+
+  // Focus mode integration — track when focus module is active
+  useEffect(() => {
+    const isFocus = activeModule === 'focus';
+    setFocusMode(isFocus);
+    document.documentElement.setAttribute('data-focus', isFocus ? 'active' : 'idle');
+    // Focus mode sound
+    if (isFocus) playSound('focusActivate');
+  }, [activeModule]);
 
   // Apply ALL settings to document
   useEffect(() => {
@@ -97,6 +122,10 @@ export default function EveApp() {
     root.style.setProperty('--glass-blur', `${settings.blurAmount}px`);
     root.setAttribute('data-particles', settings.particlesEnabled ? 'on' : 'off');
     root.style.setProperty('--particle-opacity', (settings.particleIntensity / 100 * 0.08).toFixed(3));
+
+    // Track ambience for rain reactivity
+    const isRain = settings.background === 'rain' || settings.background === 'rainyCity';
+    root.setAttribute('data-ambience', isRain ? 'rain' : 'normal');
   }, [settings, mounted]);
 
   // Keyboard shortcuts
@@ -262,10 +291,10 @@ export default function EveApp() {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activeModule}
-                  initial={{ opacity: 0, filter: 'blur(6px)' }}
+                  initial={{ opacity: 0, filter: 'blur(8px)' }}
                   animate={{ opacity: 1, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, filter: 'blur(6px)' }}
-                  transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  exit={{ opacity: 0, filter: 'blur(8px)' }}
+                  transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
                   className="h-full overflow-y-auto"
                 >
                   <ActiveComponent />
