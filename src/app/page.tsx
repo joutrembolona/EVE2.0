@@ -25,7 +25,9 @@ import { getStatusText } from '@/lib/contextualPhrases';
 import { playSound, setSoundEnabled } from '@/lib/sounds';
 import { speak, initVoice } from '@/lib/voice';
 import { getGreetingPhrase } from '@/lib/contextualPhrases';
-import { Command, Settings } from 'lucide-react';
+import { startPresence, stopPresence, triggerReturningDialogue } from '@/lib/presence';
+import { EVEChat } from '@/components/EVEChat';
+import { Command, Settings, MessageCircle } from 'lucide-react';
 
 const moduleComponents: Record<string, React.ComponentType> = {
   home: HomeModule,
@@ -50,6 +52,7 @@ export default function EveApp() {
   const [showPresence, setShowPresence] = useState(false);
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [idle, setIdle] = useState(false);
   const [mounted, setMounted] = useState(false);
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -111,6 +114,17 @@ export default function EveApp() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [commandBarOpen, setCommandBarOpen]);
 
+  // Visibility change — trigger returning dialogue
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && workspaceReady) {
+        triggerReturningDialogue();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [workspaceReady]);
+
   // Idle detection
   const resetIdle = useCallback(() => {
     setIdle(false);
@@ -149,6 +163,7 @@ export default function EveApp() {
     setShowPresence(false);
     setTimeout(() => setWorkspaceReady(true), 800);
     playSound('transition');
+    startPresence();
   }, []);
 
   const handleSettingsChange = useCallback((newSettings: EVESettings) => {
@@ -227,6 +242,13 @@ export default function EveApp() {
                   <span className="hidden sm:inline">CTRL+K</span>
                 </button>
                 <button
+                  onClick={() => { setChatOpen(true); playSound('click'); }}
+                  className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-surface-2/50 transition-all"
+                  onMouseEnter={() => playSound('hover')}
+                >
+                  <MessageCircle size={14} />
+                </button>
+                <button
                   onClick={() => { setSettingsOpen(true); playSound('click'); }}
                   className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-surface-2/50 transition-all"
                   onMouseEnter={() => playSound('hover')}
@@ -258,6 +280,11 @@ export default function EveApp() {
         isOpen={commandBarOpen}
         onClose={() => { setCommandBarOpen(false); playSound('click'); }}
         onOpenSettings={() => setSettingsOpen(true)}
+      />
+
+      <EVEChat
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
       />
 
       <SettingsPanel

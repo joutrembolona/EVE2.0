@@ -1,76 +1,132 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 
 interface EVEPresenceProps {
   active?: boolean;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
-  reactive?: boolean;
+  mood?: 'calm' | 'focus' | 'night' | 'rain';
 }
 
-export function EVEPresence({ active = true, size = 'md', className = '', reactive = false }: EVEPresenceProps) {
-  const sizeMap = { sm: 'w-2 h-2', md: 'w-3.5 h-3.5', lg: 'w-6 h-6' };
-  const glowMap = { sm: 4, md: 8, lg: 16 };
+export function EVEPresence({ active = true, size = 'md', className = '', mood = 'calm' }: EVEPresenceProps) {
+  const sizeMap = { sm: 8, md: 14, lg: 24 };
+  const px = sizeMap[size];
+
+  // Organic breathing — random rhythm variations
+  const [breathPhase, setBreathPhase] = useState(0);
+  const [pulseIntensity, setPulseIntensity] = useState(1);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (!active) return;
+
+    // Micro-behavior: random pulse variations every 3-8 seconds
+    const vary = () => {
+      setPulseIntensity(0.7 + Math.random() * 0.6);
+      intervalRef.current = setTimeout(vary, 3000 + Math.random() * 5000);
+    };
+    intervalRef.current = setTimeout(vary, 2000);
+
+    return () => {
+      if (intervalRef.current) clearTimeout(intervalRef.current);
+    };
+  }, [active]);
+
+  // Mood-based color shifts
+  const moodColors = {
+    calm: { core: 'rgba(74,158,255,0.9)', glow: 'rgba(74,158,255,0.4)', ring: 'rgba(74,158,255,0.08)' },
+    focus: { core: 'rgba(74,158,255,0.95)', glow: 'rgba(74,158,255,0.5)', ring: 'rgba(74,158,255,0.1)' },
+    night: { core: 'rgba(74,158,255,0.7)', glow: 'rgba(74,158,255,0.25)', ring: 'rgba(74,158,255,0.05)' },
+    rain: { core: 'rgba(91,155,213,0.8)', glow: 'rgba(91,155,213,0.3)', ring: 'rgba(91,155,213,0.06)' },
+  };
+
+  const colors = moodColors[mood];
 
   return (
     <div className={`relative inline-flex items-center justify-center ${className}`}>
-      {/* Outer ring pulse */}
+      {/* Outer ring — slow breathing */}
       {active && (
         <motion.div
-          className={`absolute rounded-full`}
+          className="absolute rounded-full"
           style={{
-            width: `${glowMap[size] * 3}px`,
-            height: `${glowMap[size] * 3}px`,
-            border: '1px solid rgba(74,158,255,0.08)',
+            width: `${px * 3.5}px`,
+            height: `${px * 3.5}px`,
+            border: `1px solid ${colors.ring}`,
           }}
           animate={{
-            scale: [1, 1.5, 1],
-            opacity: [0.3, 0, 0.3],
+            scale: [1, 1.3 + Math.random() * 0.2, 1],
+            opacity: [0.2, 0.4 * pulseIntensity, 0.2],
+            rotate: [0, 5, -5, 0],
           }}
           transition={{
-            duration: 4,
+            duration: 5 + Math.random() * 2,
             repeat: Infinity,
             ease: 'easeInOut',
           }}
         />
       )}
 
-      {/* Mid glow */}
+      {/* Mid glow — organic breathing */}
       {active && (
         <motion.div
-          className={`absolute rounded-full`}
+          className="absolute rounded-full"
           style={{
-            width: `${glowMap[size] * 2}px`,
-            height: `${glowMap[size] * 2}px`,
-            background: 'radial-gradient(circle, rgba(74,158,255,0.15) 0%, transparent 70%)',
+            width: `${px * 2.5}px`,
+            height: `${px * 2.5}px`,
+            background: `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)`,
           }}
           animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.4, 0.6, 0.4],
+            scale: [1, 1.15 * pulseIntensity, 1],
+            opacity: [0.3, 0.5 * pulseIntensity, 0.3],
           }}
           transition={{
-            duration: 3,
+            duration: 3.5,
             repeat: Infinity,
             ease: 'easeInOut',
           }}
         />
       )}
 
-      {/* Core orb */}
+      {/* Holographic flicker — subtle instability */}
+      {active && (
+        <motion.div
+          className="absolute rounded-full"
+          style={{
+            width: `${px * 1.8}px`,
+            height: `${px * 1.8}px`,
+            background: `radial-gradient(circle, ${colors.core} 0%, transparent 60%)`,
+          }}
+          animate={{
+            opacity: [0.15, 0.25, 0.1, 0.2, 0.15],
+            scale: [1, 1.02, 0.98, 1.01, 1],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: 'linear',
+            times: [0, 0.2, 0.4, 0.7, 1],
+          }}
+        />
+      )}
+
+      {/* Core orb — the living center */}
       <motion.div
-        className={`${sizeMap[size]} rounded-full relative`}
+        className="rounded-full relative"
         style={{
+          width: `${px}px`,
+          height: `${px}px`,
           background: active
-            ? 'radial-gradient(circle, rgba(74,158,255,0.9) 0%, rgba(30,60,120,0.6) 60%, transparent 100%)'
+            ? `radial-gradient(circle, ${colors.core} 0%, rgba(30,60,120,0.6) 60%, transparent 100%)`
             : 'radial-gradient(circle, rgba(60,65,80,0.5) 0%, rgba(30,35,45,0.3) 100%)',
           boxShadow: active
-            ? `0 0 ${glowMap[size]}px rgba(74,158,255,0.4), 0 0 ${glowMap[size] * 2}px rgba(74,158,255,0.1)`
+            ? `0 0 ${px * 0.5}px ${colors.glow}, 0 0 ${px}px ${colors.glow}`
             : 'none',
         }}
         animate={active ? {
-          scale: [1, 1.06, 1],
-          opacity: [0.9, 1, 0.9],
+          scale: [1, 1.04 * pulseIntensity, 1],
+          opacity: [0.85, 1, 0.85],
         } : {}}
         transition={{
           duration: 2.5,

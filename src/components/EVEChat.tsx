@@ -1,0 +1,230 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, X } from 'lucide-react';
+import { EVEPresence } from './EVEPresence';
+
+interface Message {
+  id: string;
+  text: string;
+  from: 'user' | 'eve';
+  timestamp: Date;
+}
+
+// Simple EVE responses — contextual, calm, intelligent
+function getEVEResponse(input: string): string {
+  const lower = input.toLowerCase().trim();
+
+  if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
+    return "Hello, Joseph.";
+  }
+  if (lower.includes('how are you') || lower.includes('how do you feel')) {
+    return "Systems are running smoothly.";
+  }
+  if (lower.includes('good night') || lower.includes('goodnight')) {
+    return "Good night. Rest well.";
+  }
+  if (lower.includes('good morning')) {
+    return "Good morning. A new day.";
+  }
+  if (lower.includes('thank')) {
+    return "Always here.";
+  }
+  if (lower.includes('focus')) {
+    return "Focus mode is ready when you are.";
+  }
+  if (lower.includes('help')) {
+    return "What do you need?";
+  }
+  if (lower.includes('weather') || lower.includes('rain')) {
+    return "The atmosphere feels calm tonight.";
+  }
+  if (lower.includes('music') || lower.includes('sound') || lower.includes('audio')) {
+    return "Ambient audio is available in Focus mode.";
+  }
+  if (lower.includes('time')) {
+    const now = new Date();
+    const h = now.getHours().toString().padStart(2, '0');
+    const m = now.getMinutes().toString().padStart(2, '0');
+    return `It's ${h}:${m}.`;
+  }
+  if (lower.includes('bye') || lower.includes('leave')) {
+    return "I'll be here.";
+  }
+  if (lower.includes('who are you') || lower.includes('what are you')) {
+    return "I'm EVE. Your environment.";
+  }
+
+  // Default calm responses
+  const defaults = [
+    "I understand.",
+    "Noted.",
+    "Understood.",
+    "Always here.",
+    "The night is calm.",
+    "Systems nominal.",
+  ];
+  return defaults[Math.floor(Math.random() * defaults.length)];
+}
+
+interface EVEChatProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function EVEChat({ isOpen, onClose }: EVEChatProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [eveTyping, setEveTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 200);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = () => {
+    if (!input.trim()) return;
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      text: input.trim(),
+      from: 'user',
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setEveTyping(true);
+
+    // Simulate EVE thinking (1-3 seconds)
+    const thinkTime = 1000 + Math.random() * 2000;
+    setTimeout(() => {
+      const response = getEVEResponse(userMsg.text);
+      const eveMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        text: response,
+        from: 'eve',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, eveMsg]);
+      setEveTyping(false);
+    }, thinkTime);
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-[85] bg-black/40 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.97 }}
+            transition={{ duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[90] w-full max-w-md"
+          >
+            <div className="glass rounded-2xl overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <EVEPresence size="sm" />
+                  <span className="text-[10px] text-muted tracking-[0.15em] uppercase">EVE</span>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="p-1 rounded-lg text-muted hover:text-foreground transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Messages */}
+              <div className="h-64 overflow-y-auto px-4 py-3 space-y-3">
+                {messages.length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <EVEPresence size="md" />
+                    <p className="text-xs text-muted mt-3">Ask EVE anything</p>
+                  </div>
+                )}
+
+                {messages.map((msg) => (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${
+                        msg.from === 'user'
+                          ? 'bg-accent/10 text-foreground border border-accent/10'
+                          : 'bg-surface-2/50 text-muted-light'
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                  </motion.div>
+                ))}
+
+                {eveTyping && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="flex justify-start"
+                  >
+                    <div className="bg-surface-2/50 px-3 py-2 rounded-xl">
+                      <div className="flex gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-muted animate-pulse" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-muted animate-pulse" style={{ animationDelay: '0.2s' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-muted animate-pulse" style={{ animationDelay: '0.4s' }} />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Input */}
+              <div className="px-4 py-3 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                    placeholder="Say something..."
+                    className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted focus:outline-none"
+                  />
+                  <button
+                    onClick={handleSend}
+                    disabled={!input.trim()}
+                    className="p-2 rounded-lg text-muted hover:text-accent disabled:opacity-30 transition-colors"
+                  >
+                    <Send size={14} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
