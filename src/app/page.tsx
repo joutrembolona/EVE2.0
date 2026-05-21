@@ -170,12 +170,19 @@ export default function EveApp() {
         )}
       </AnimatePresence>
 
-      {/* Particle canvas (always renders when enabled) */}
+      {/* Atmospheric layers — always present */}
+      <div className="env-base" />
+      <div className="env-light-shaft" />
+      <div className="env-fog" />
+      <div className="env-horizon" />
+
+      {/* Particle canvas */}
       {booted && <ParticleCanvas />}
 
+      {/* Selected background */}
       {backgroundLayer}
 
-      {/* Noise overlay */}
+      {/* Noise texture */}
       <div className="noise-overlay" />
 
       {booted && (
