@@ -188,9 +188,9 @@ export function CommandBar({ isOpen, onClose, onOpenSettings }: CommandBarProps)
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: 0.4 }}
             onClick={onClose}
-            className="fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm"
+            className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm"
           />
 
           {/* Command Bar */}

@@ -253,10 +253,10 @@ export function SettingsPanel({ isOpen, onClose, settings, onChange }: SettingsP
             className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm"
           />
           <motion.div
-            initial={{ opacity: 0, x: 300 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 300 }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            initial={{ opacity: 0, x: 100, filter: 'blur(8px)' }}
+            animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, x: 100, filter: 'blur(8px)' }}
+            transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="fixed right-0 top-0 bottom-0 z-[85] w-full max-w-md glass border-l border-border overflow-y-auto"
           >
             {/* Header */}

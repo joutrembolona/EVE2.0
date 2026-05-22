@@ -28,7 +28,7 @@ import { recordAmbience } from '@/lib/memory';
 import { getAtmosphere, applyAtmosphere, getAmbienceModifier } from '@/lib/atmosphere';
 import { EVEChat } from '@/components/EVEChat';
 import { ambientEngine } from '@/components/focus/AmbientAudio';
-import { Command, Settings, MessageCircle } from 'lucide-react';
+import { BottomBar } from '@/components/BottomBar';
 
 const moduleComponents: Record<string, React.ComponentType> = {
   home: HomeModule,
@@ -285,51 +285,12 @@ export default function EveApp() {
             </motion.div>
           </AnimatePresence>
 
-          {/* Floating bottom bar — minimal, ambient, cinematic */}
-          <div
-            className="fixed bottom-0 left-0 right-0 z-20 flex items-center justify-center pb-4 pointer-events-none"
-            style={{
-              background: 'linear-gradient(to top, rgba(18,16,26,0.3) 0%, transparent 100%)',
-            }}
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5, duration: 1 }}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full pointer-events-auto"
-              style={{
-                background: 'rgba(18, 16, 26, 0.25)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-                border: '1px solid rgba(180, 120, 200, 0.04)',
-              }}
-            >
-              <button
-                onClick={() => { setCommandBarOpen(true); playSound('click'); }}
-                onMouseEnter={() => playSound('hover')}
-                className="p-2 rounded-full text-muted/30 hover:text-muted/60 transition-colors duration-300"
-                title="Command (Ctrl+K)"
-              >
-                <Command size={12} />
-              </button>
-              <button
-                onClick={() => { setChatOpen(true); playSound('click'); }}
-                onMouseEnter={() => playSound('hover')}
-                className="p-2 rounded-full text-muted/30 hover:text-muted/60 transition-colors duration-300"
-                title="Chat"
-              >
-                <MessageCircle size={12} />
-              </button>
-              <button
-                onClick={() => { setSettingsOpen(true); playSound('click'); }}
-                onMouseEnter={() => playSound('hover')}
-                className="p-2 rounded-full text-muted/30 hover:text-muted/60 transition-colors duration-300"
-                title="Settings"
-              >
-                <Settings size={12} />
-              </button>
-            </motion.div>
-          </div>
+          {/* Floating bottom bar — nearly invisible, appears on hover */}
+          <BottomBar
+            onCommand={() => setCommandBarOpen(true)}
+            onChat={() => setChatOpen(true)}
+            onSettings={() => setSettingsOpen(true)}
+          />
         </div>
       )}
 

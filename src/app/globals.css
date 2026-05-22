@@ -241,6 +241,59 @@ body {
 [data-motion="static"] * { animation-duration: 0s !important; transition-duration: 0s !important; }
 [data-motion="cinematic"] * { animation-duration: 1.5s; transition-duration: 0.5s; }
 
+/* Global cinematic pacing — slower, softer transitions */
+button, a, input, [role="button"] {
+  transition-duration: 500ms;
+  transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* All opacity transitions should be slow */
+.transition-opacity {
+  transition-duration: 800ms;
+}
+
+/* Module-level environmental softening */
+/* Reduce border visibility across all modules */
+.border-border {
+  border-color: rgba(180, 120, 200, 0.03) !important;
+}
+
+/* Soften grid layouts — more breathing room */
+.gap-2 { gap: 0.5rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+
+/* Section headers — quieter */
+h3 {
+  font-weight: 300;
+  letter-spacing: 0.15em;
+}
+
+/* Scroll areas — smoother */
+.overflow-y-auto {
+  scroll-behavior: smooth;
+}
+
+/* Input fields — minimal, environmental */
+input[type="text"],
+input[type="number"],
+textarea {
+  transition: border-color 800ms ease, box-shadow 800ms ease;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+textarea:focus {
+  border-color: rgba(196, 122, 234, 0.1);
+  box-shadow: 0 0 0 1px rgba(196, 122, 234, 0.05);
+}
+
+/* Progress bars — softer */
+.progress-bar,
+[role="progressbar"] {
+  transition: width 1.5s ease;
+}
+
 /* ============================================
    THEMES — Joi-inspired
    ============================================ */
