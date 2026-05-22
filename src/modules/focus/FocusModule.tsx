@@ -2,381 +2,538 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format } from 'date-fns';
-import {
-  Play, Pause, RotateCcw, Timer, Clock, Flame,
-  Maximize2, Minimize2,
-} from 'lucide-react';
-import { GlassCard } from '@/components/ui/GlassCard';
-import { ProgressRing } from '@/components/ui/ProgressRing';
-import { Button } from '@/components/ui/Button';
+import { Play, Pause, RotateCcw, Infinity as InfinityIcon } from 'lucide-react';
 import { AmbientAudio } from '@/components/focus/AmbientAudio';
 import { EVEPresence } from '@/components/EVEPresence';
 import { useStore } from '@/store';
-import { getToday, formatMinutes, cn } from '@/lib/utils';
-import { getActivityPhrase } from '@/lib/contextualPhrases';
+import { cn } from '@/lib/utils';
+import { playSound } from '@/lib/sounds';
 
-const presets = [
-  { label: '25 min', seconds: 25 * 60 },
-  { label: '45 min', seconds: 45 * 60 },
-  { label: '60 min', seconds: 60 * 60 },
-  { label: '90 min', seconds: 90 * 60 },
-];
+type FocusMode = 'timer' | 'stopwatch' | 'infinite';
+type FocusPhase = 'setup' | 'active' | 'complete';
 
 export function FocusModule() {
-  const { focusSessions, addFocusSession } = useStore();
-  const [duration, setDuration] = useState(25 * 60);
-  const [remaining, setRemaining] = useState(25 * 60);
+  const { addFocusSession } = useStore();
+
+  // Mode & state
+  const [mode, setMode] = useState<FocusMode>('timer');
+  const [phase, setPhase] = useState<FocusPhase>('setup');
+
+  // Timer inputs
+  const [inputHours, setInputHours] = useState(0);
+  const [inputMinutes, setInputMinutes] = useState(25);
+
+  // Runtime
+  const [elapsed, setElapsed] = useState(0); // seconds elapsed
   const [isRunning, setIsRunning] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [label, setLabel] = useState('');
   const [showAudio, setShowAudio] = useState(false);
-  const [motivationalPhrase, setMotivationalPhrase] = useState('');
+
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startedAtRef = useRef('');
 
-  const progress = ((duration - remaining) / duration) * 100;
+  // Computed
+  const totalDuration = mode === 'timer' ? (inputHours * 3600 + inputMinutes * 60) : 0;
+  const remaining = mode === 'timer' ? Math.max(0, totalDuration - elapsed) : 0;
+  const progress = mode === 'timer' && totalDuration > 0 ? (elapsed / totalDuration) * 100 : 0;
 
-  const stop = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
+  // Format time
+  const formatTime = (totalSecs: number) => {
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  // Timer logic
+  useEffect(() => {
+    if (!isRunning) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
+
+    intervalRef.current = setInterval(() => {
+      setElapsed(prev => {
+        const next = prev + 1;
+
+        // Timer mode — check completion
+        if (mode === 'timer' && next >= totalDuration) {
+          setIsRunning(false);
+          setPhase('complete');
+          addFocusSession({
+            duration: totalDuration,
+            startedAt: startedAtRef.current,
+            endedAt: new Date().toISOString(),
+            label: label || 'Focus session',
+            completed: true,
+          });
+          playSound('confirm');
+          return totalDuration;
+        }
+
+        return next;
+      });
+    }, 1000);
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [isRunning, mode, totalDuration, label, addFocusSession]);
+
+  // Controls
+  const handleStart = useCallback(() => {
+    if (phase === 'setup') {
+      startedAtRef.current = new Date().toISOString();
+      setPhase('active');
+      setElapsed(0);
+    }
+    setIsRunning(true);
+    playSound('click');
+  }, [phase]);
+
+  const handlePause = useCallback(() => {
     setIsRunning(false);
+    playSound('click');
   }, []);
 
+  const handleReset = useCallback(() => {
+    setIsRunning(false);
+    setElapsed(0);
+    setPhase('setup');
+    playSound('click');
+  }, []);
+
+  const handleComplete = useCallback(() => {
+    setIsRunning(false);
+    if (elapsed > 0) {
+      addFocusSession({
+        duration: elapsed,
+        startedAt: startedAtRef.current,
+        endedAt: new Date().toISOString(),
+        label: label || 'Focus session',
+        completed: false,
+      });
+      playSound('confirm');
+    }
+    setPhase('complete');
+  }, [elapsed, label, addFocusSession]);
+
+  // Cleanup
   useEffect(() => {
-    if (isRunning && remaining > 0) {
-      intervalRef.current = setInterval(() => {
-        setRemaining((r) => {
-          if (r <= 1) {
-            stop();
-            addFocusSession({
-              duration,
-              startedAt: startedAtRef.current,
-              endedAt: new Date().toISOString(),
-              label: label || 'Focus session',
-              completed: true,
-            });
-            setMotivationalPhrase(getActivityPhrase('afterFocus'));
-            return 0;
-          }
-          return r - 1;
-        });
-      }, 1000);
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [isRunning, remaining, duration, label, stop, addFocusSession]);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
 
-  const handleStart = () => {
-    if (!isRunning) {
-      startedAtRef.current = new Date().toISOString();
-      setIsRunning(true);
-      setMotivationalPhrase('');
-    } else {
-      stop();
-    }
-  };
+  // ─── Setup Phase — mode selection & time input ────────────────
 
-  const handleReset = () => {
-    stop();
-    setRemaining(duration);
-    setMotivationalPhrase('');
-  };
-
-  const selectPreset = (seconds: number) => {
-    stop();
-    setDuration(seconds);
-    setRemaining(seconds);
-  };
-
-  const mins = Math.floor(remaining / 60);
-  const secs = remaining % 60;
-
-  const today = getToday();
-  const todaySessions = focusSessions.filter((s) => s.startedAt.startsWith(today));
-  const todayMinutes = todaySessions.reduce((sum, s) => sum + Math.round(s.duration / 60), 0);
-  const totalSessions = focusSessions.length;
-  const totalMinutes = focusSessions.reduce((sum, s) => sum + Math.round(s.duration / 60), 0);
-
-  // Fullscreen mode — cinematic deep-focus
-  if (isFullscreen) {
+  if (phase === 'setup') {
     return (
-      <div className="fixed inset-0 z-[60] bg-background flex flex-col items-center justify-center">
+      <div className="h-full flex flex-col items-center justify-center relative">
         {/* Ambient glow */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
-            style={{
-              background: `radial-gradient(circle, ${isRunning ? 'rgba(74,158,255,0.06)' : 'rgba(74,158,255,0.03)'} 0%, transparent 70%)`,
-            }}
-          />
-        </div>
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: '40%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '500px',
+            height: '500px',
+            background: 'radial-gradient(circle, rgba(196,122,234,0.03) 0%, transparent 60%)',
+            animation: 'breathe 8s ease-in-out infinite',
+          }}
+        />
 
-        {/* Exit button */}
-        <button
-          onClick={() => setIsFullscreen(false)}
-          className="absolute top-6 right-6 p-2 rounded-lg text-muted hover:text-foreground transition-colors z-10"
-        >
-          <Minimize2 size={16} />
-        </button>
-
-        {/* EVE Presence */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="absolute top-6 left-6 z-10"
-        >
-          <EVEPresence size="sm" active={isRunning} />
-        </motion.div>
-
-        {/* Timer */}
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="relative z-10"
-        >
-          <ProgressRing
-            progress={progress}
-            size={300}
-            strokeWidth={6}
-            color={isRunning ? 'rgba(74,158,255,0.8)' : 'rgba(74,158,255,0.4)'}
+        <div className="relative z-10 flex flex-col items-center space-y-12">
+          {/* EVE Presence */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1 }}
           >
-            <div className="text-center">
-              <div
-                className="text-6xl font-extralight tracking-tight text-foreground"
-                style={{ fontFamily: 'var(--font-mono)' }}
+            <EVEPresence size="lg" />
+          </motion.div>
+
+          {/* Mode selection */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
+            className="flex items-center gap-1"
+          >
+            {(['timer', 'stopwatch', 'infinite'] as FocusMode[]).map(m => (
+              <button
+                key={m}
+                onClick={() => { setMode(m); playSound('hover'); }}
+                className={cn(
+                  'px-4 py-1.5 rounded-lg text-[10px] tracking-[0.15em] uppercase transition-all duration-300',
+                  mode === m
+                    ? 'text-accent/70 bg-accent/5'
+                    : 'text-muted/30 hover:text-muted/50'
+                )}
               >
-                {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
-              </div>
-              {isRunning && <p className="text-xs text-accent/60 mt-2">Focusing...</p>}
-              {!isRunning && remaining === 0 && <p className="text-xs text-gold mt-2">Complete</p>}
-            </div>
-          </ProgressRing>
-        </motion.div>
+                {m === 'infinite' ? <InfinityIcon size={12} /> : m}
+              </button>
+            ))}
+          </motion.div>
 
-        {/* Label */}
-        {label && (
-          <p className="text-sm text-muted-light mt-6 z-10 font-light">{label}</p>
-        )}
-
-        {/* Phrase */}
-        <AnimatePresence>
-          {motivationalPhrase && (
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 0.4 }}
-              exit={{ opacity: 0 }}
-              className="text-xs text-muted mt-4 italic z-10"
-            >
-              {motivationalPhrase}
-            </motion.p>
-          )}
-        </AnimatePresence>
-
-        {/* Controls */}
-        <div className="flex items-center gap-6 mt-8 z-10">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleReset}
-            className="w-10 h-10 rounded-full bg-surface-2 text-muted hover:text-foreground flex items-center justify-center transition-colors"
-          >
-            <RotateCcw size={16} />
-          </motion.button>
-
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleStart}
-            className={cn(
-              'w-14 h-14 rounded-full flex items-center justify-center text-white transition-all',
-              isRunning ? 'bg-accent/80' : 'bg-accent'
+          {/* Timer input — only for timer mode */}
+          <AnimatePresence mode="wait">
+            {mode === 'timer' && (
+              <motion.div
+                key="timer-input"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.4 }}
+                className="flex items-center gap-2"
+              >
+                <TimeInput
+                  value={inputHours}
+                  onChange={setInputHours}
+                  max={12}
+                  label="h"
+                />
+                <span className="text-muted/20 text-lg font-extralight">:</span>
+                <TimeInput
+                  value={inputMinutes}
+                  onChange={setInputMinutes}
+                  max={59}
+                  label="m"
+                />
+              </motion.div>
             )}
-            style={{ boxShadow: '0 0 20px rgba(74,158,255,0.2)' }}
+
+            {mode === 'stopwatch' && (
+              <motion.p
+                key="stopwatch-label"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.3 }}
+                exit={{ opacity: 0 }}
+                className="text-[10px] text-muted tracking-[0.2em] uppercase"
+              >
+                count up
+              </motion.p>
+            )}
+
+            {mode === 'infinite' && (
+              <motion.p
+                key="infinite-label"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.3 }}
+                exit={{ opacity: 0 }}
+                className="text-[10px] text-muted tracking-[0.2em] uppercase"
+              >
+                no timer
+              </motion.p>
+            )}
+          </AnimatePresence>
+
+          {/* Label input */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 0.8 }}
+            className="w-64"
           >
-            {isRunning ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
-          </motion.button>
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="What are you focusing on?"
+              className="w-full bg-transparent text-center text-[11px] text-muted/50 placeholder:text-muted/20 focus:outline-none tracking-wide"
+            />
+          </motion.div>
 
-          <div className="w-10" />
-        </div>
+          {/* Audio toggle */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6, duration: 0.8 }}
+          >
+            <button
+              onClick={() => setShowAudio(!showAudio)}
+              className={cn(
+                'text-[9px] tracking-[0.15em] uppercase transition-colors duration-300',
+                showAudio ? 'text-accent/50' : 'text-muted/20 hover:text-muted/40'
+              )}
+            >
+              ambience
+            </button>
+          </motion.div>
 
-        {/* Audio — bottom left */}
-        <div className="absolute bottom-6 left-6 z-10">
-          <AmbientAudio compact />
+          <AnimatePresence>
+            {showAudio && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.4 }}
+              >
+                <AmbientAudio compact />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Start button */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.7, duration: 0.8 }}
+          >
+            <button
+              onClick={handleStart}
+              className="text-[10px] tracking-[0.2em] uppercase text-muted/30 hover:text-muted/60 transition-colors duration-300"
+            >
+              begin
+            </button>
+          </motion.div>
         </div>
       </div>
     );
   }
 
-  // Normal mode
-  return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-light text-foreground tracking-wide">Focus</h1>
-          <p className="text-xs text-muted mt-1">Deep work environment</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setShowAudio(!showAudio)}>
-            Audio
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(true)} icon={<Maximize2 size={14} />}>
-            Fullscreen
-          </Button>
+  // ─── Complete Phase ───────────────────────────────────────────
+
+  if (phase === 'complete') {
+    return (
+      <div className="h-full flex flex-col items-center justify-center relative">
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: '40%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '400px',
+            height: '400px',
+            background: 'radial-gradient(circle, rgba(196,122,234,0.04) 0%, transparent 60%)',
+          }}
+        />
+
+        <div className="relative z-10 flex flex-col items-center space-y-8">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1 }}
+          >
+            <EVEPresence size="lg" />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.6 }}
+            transition={{ delay: 0.5, duration: 1 }}
+            className="text-center space-y-2"
+          >
+            <p className="text-lg font-extralight text-foreground/60">{formatTime(elapsed)}</p>
+            <p className="text-[10px] text-muted/30 tracking-[0.2em] uppercase">
+              {mode === 'timer' ? 'complete' : 'session ended'}
+            </p>
+          </motion.div>
+
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.3 }}
+            transition={{ delay: 1, duration: 0.8 }}
+            onClick={handleReset}
+            className="text-[9px] tracking-[0.15em] uppercase text-muted/30 hover:text-muted/50 transition-colors duration-300"
+          >
+            new session
+          </motion.button>
         </div>
       </div>
+    );
+  }
 
-      {/* Audio Panel */}
-      <AnimatePresence>
-        {showAudio && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <GlassCard>
-              <AmbientAudio />
-            </GlassCard>
-          </motion.div>
-        )}
-      </AnimatePresence>
+  // ─── Active Phase — the immersive focus environment ───────────
 
-      {/* Timer */}
-      <div className="flex flex-col items-center justify-center py-10">
+  const displayTime = mode === 'timer' ? formatTime(remaining) : formatTime(elapsed);
+
+  return (
+    <div className="h-full flex flex-col items-center justify-center relative">
+      {/* Environmental glow — reacts to state */}
+      <div
+        className="absolute pointer-events-none transition-all duration-[8s]"
+        style={{
+          top: '40%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: isRunning ? '600px' : '400px',
+          height: isRunning ? '600px' : '400px',
+          background: isRunning
+            ? 'radial-gradient(circle, rgba(196,122,234,0.04) 0%, transparent 60%)'
+            : 'radial-gradient(circle, rgba(196,122,234,0.02) 0%, transparent 60%)',
+        }}
+      />
+
+      {/* EVE Presence — small, in the corner */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3, duration: 1 }}
+        className="absolute top-8 left-8"
+      >
+        <EVEPresence size="sm" active={isRunning} />
+      </motion.div>
+
+      {/* Center content */}
+      <div className="relative z-10 flex flex-col items-center space-y-8">
+
+        {/* Timer display — clean, cinematic */}
         <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5 }}
-          className="relative"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8 }}
+          className="text-center"
         >
-          <ProgressRing
-            progress={progress}
-            size={240}
-            strokeWidth={4}
-            color={isRunning ? 'rgba(74,158,255,0.8)' : 'rgba(74,158,255,0.4)'}
+          <p
+            className={cn(
+              'font-extralight tracking-tight transition-colors duration-[3s]',
+              mode === 'timer' && remaining < 60 ? 'text-accent/60' : 'text-foreground/50'
+            )}
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: mode === 'infinite' ? '3rem' : '4.5rem',
+            }}
           >
-            <div className="text-center">
+            {mode === 'infinite' ? (
+              <InfinityIcon size={48} className="opacity-30" />
+            ) : (
+              displayTime
+            )}
+          </p>
+
+          {/* Progress ring — only for timer mode */}
+          {mode === 'timer' && (
+            <div className="mt-4 flex justify-center">
               <div
-                className="text-5xl font-extralight tracking-tight text-foreground"
-                style={{ fontFamily: 'var(--font-mono)' }}
-              >
-                {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
-              </div>
-              {isRunning && <p className="text-xs text-accent/60 mt-2">Focusing...</p>}
-              {!isRunning && remaining === 0 && <p className="text-xs text-gold mt-2">Complete</p>}
+                className="h-[2px] rounded-full transition-all duration-1000"
+                style={{
+                  width: '120px',
+                  background: `linear-gradient(to right, rgba(196,122,234,0.3) ${progress}%, rgba(180,120,200,0.05) ${progress}%)`,
+                }}
+              />
             </div>
-          </ProgressRing>
+          )}
         </motion.div>
 
-        {/* Phrase */}
-        <AnimatePresence>
-          {motivationalPhrase && (
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 0.4 }}
-              exit={{ opacity: 0 }}
-              className="text-xs text-muted mt-4 italic"
-            >
-              {motivationalPhrase}
-            </motion.p>
-          )}
-        </AnimatePresence>
+        {/* Label — barely visible */}
+        {label && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.25 }}
+            className="text-[10px] text-muted tracking-[0.2em] uppercase"
+          >
+            {label}
+          </motion.p>
+        )}
 
-        {/* Label input */}
-        <div className="mt-4 w-full max-w-xs">
-          <input
-            type="text"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="What are you focusing on?"
-            className="w-full bg-transparent text-center text-sm text-muted-light placeholder:text-muted focus:outline-none"
-          />
-        </div>
-
-        {/* Presets */}
-        <div className="flex gap-2 mt-5">
-          {presets.map((p) => (
-            <button
-              key={p.label}
-              onClick={() => selectPreset(p.seconds)}
-              className={cn(
-                'px-4 py-2 rounded-xl text-xs transition-all',
-                duration === p.seconds
-                  ? 'bg-accent/15 text-accent border border-accent/20'
-                  : 'bg-surface-2 text-muted hover:text-foreground border border-transparent'
-              )}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Controls */}
-        <div className="flex items-center gap-4 mt-6">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+        {/* Controls — minimal, almost hidden */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5, duration: 1 }}
+          className="flex items-center gap-6"
+        >
+          <button
             onClick={handleReset}
-            className="w-10 h-10 rounded-full bg-surface-2 text-muted hover:text-foreground flex items-center justify-center transition-colors"
+            className="p-2 rounded-full text-muted/20 hover:text-muted/40 transition-colors duration-300"
           >
-            <RotateCcw size={16} />
-          </motion.button>
+            <RotateCcw size={14} />
+          </button>
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleStart}
-            className={cn(
-              'w-14 h-14 rounded-full flex items-center justify-center text-white transition-all',
-              isRunning ? 'bg-accent/80' : 'bg-accent'
-            )}
-            style={{ boxShadow: '0 0 20px rgba(74,158,255,0.2)' }}
+          <button
+            onClick={isRunning ? handlePause : handleStart}
+            className="p-3 rounded-full text-muted/30 hover:text-muted/50 transition-colors duration-300"
+            style={{
+              border: '1px solid rgba(180, 120, 200, 0.06)',
+            }}
           >
-            {isRunning ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
-          </motion.button>
+            {isRunning ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
+          </button>
 
-          <div className="w-10" />
-        </div>
+          <button
+            onClick={handleComplete}
+            className="p-2 rounded-full text-muted/20 hover:text-muted/40 transition-colors duration-300"
+          >
+            <div className="w-3.5 h-3.5 rounded-sm border border-current" />
+          </button>
+        </motion.div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <GlassCard padding="sm" className="text-center">
-          <p className="text-lg font-light text-foreground">{formatMinutes(todayMinutes)}</p>
-          <p className="text-[10px] text-muted mt-1">Today</p>
-        </GlassCard>
-        <GlassCard padding="sm" className="text-center">
-          <p className="text-lg font-light text-foreground">{totalSessions}</p>
-          <p className="text-[10px] text-muted mt-1">Sessions</p>
-        </GlassCard>
-        <GlassCard padding="sm" className="text-center">
-          <p className="text-lg font-light text-foreground">{formatMinutes(totalMinutes)}</p>
-          <p className="text-[10px] text-muted mt-1">All time</p>
-        </GlassCard>
+      {/* Audio — bottom left, barely visible */}
+      <div className="absolute bottom-8 left-8">
+        <AmbientAudio compact />
       </div>
+    </div>
+  );
+}
 
-      {/* Recent sessions */}
-      {focusSessions.length > 0 && (
-        <GlassCard>
-          <h3 className="text-xs font-semibold text-muted-light uppercase tracking-[0.15em] mb-4">Recent</h3>
-          <div className="space-y-2">
-            {focusSessions.slice(-5).reverse().map((s) => (
-              <div key={s.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <div className="flex items-center gap-3">
-                  <div className={cn('w-1.5 h-1.5 rounded-full', s.completed ? 'bg-success' : 'bg-warning')} />
-                  <div>
-                    <p className="text-sm text-foreground">{s.label}</p>
-                    <p className="text-[10px] text-muted">{format(new Date(s.startedAt), 'MMM d, HH:mm')}</p>
-                  </div>
-                </div>
-                <span className="text-xs text-muted-light font-mono">{formatMinutes(Math.round(s.duration / 60))}</span>
-              </div>
-            ))}
-          </div>
-        </GlassCard>
+// ─── Time Input Component ───────────────────────────────────────
+
+function TimeInput({
+  value,
+  onChange,
+  max,
+  label,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  max: number;
+  label: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [tempValue, setTempValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleClick = () => {
+    setEditing(true);
+    setTempValue(String(value));
+    setTimeout(() => inputRef.current?.select(), 10);
+  };
+
+  const handleBlur = () => {
+    setEditing(false);
+    const parsed = parseInt(tempValue);
+    if (!isNaN(parsed)) {
+      onChange(Math.max(0, Math.min(max, parsed)));
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
+  return (
+    <div className="relative">
+      {editing ? (
+        <input
+          ref={inputRef}
+          type="number"
+          min={0}
+          max={max}
+          value={tempValue}
+          onChange={(e) => setTempValue(e.target.value)}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          className="w-14 bg-transparent text-center text-3xl font-extralight text-foreground/60 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          style={{ fontFamily: 'var(--font-mono)' }}
+        />
+      ) : (
+        <button
+          onClick={handleClick}
+          className="w-14 text-center text-3xl font-extralight text-foreground/50 hover:text-foreground/70 transition-colors duration-300 cursor-text"
+          style={{ fontFamily: 'var(--font-mono)' }}
+        >
+          {String(value).padStart(2, '0')}
+        </button>
       )}
+      <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[8px] text-muted/20 tracking-[0.15em] uppercase">
+        {label}
+      </span>
     </div>
   );
 }
