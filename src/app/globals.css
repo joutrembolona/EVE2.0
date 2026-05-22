@@ -364,6 +364,22 @@ body {
 [data-theme="neonSilence"] ::selection { background: rgba(0,229,200,0.2); }
 
 /* ============================================
+   ENVIRONMENTAL TRANSITIONS
+   All atmosphere changes are gradual & cinematic
+   ============================================ */
+
+.env-base,
+.env-light-shaft,
+.env-fog,
+.env-horizon,
+.noise-overlay {
+  transition:
+    opacity 8s ease,
+    background 12s ease,
+    filter 6s ease;
+}
+
+/* ============================================
    TIME-OF-DAY ATMOSPHERE
    ============================================ */
 
@@ -414,12 +430,48 @@ body {
 [data-focus="active"] .env-fog { opacity: 0.2; }
 [data-focus="active"] .noise-overlay { opacity: 0.008; }
 
-/* Rain mode — deeper atmosphere */
+/* Rain mode — deeper atmosphere, contemplative */
 [data-ambience="rain"] .env-base { opacity: 0.45; }
 [data-ambience="rain"] .env-fog { opacity: 0.6; }
+[data-ambience="rain"] .env-light-shaft { opacity: 0.15; }
+[data-ambience="rain"] .noise-overlay { opacity: 0.012; }
 [data-ambience="rain"] .glass {
   border-color: rgba(122,138,212,0.05);
 }
+
+/* Rainy city — cinematic, immersive */
+[data-ambience="rainyCity"] .env-base { opacity: 0.5; }
+[data-ambience="rainyCity"] .env-fog { opacity: 0.55; }
+[data-ambience="rainyCity"] .noise-overlay { opacity: 0.015; }
+
+/* Synth / cinematic — richer glow, deeper contrast */
+[data-ambience="synth"] .env-base {
+  opacity: 0.55;
+  background:
+    radial-gradient(ellipse at 30% 50%, rgba(196,122,234,0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 30%, rgba(232,160,192,0.03) 0%, transparent 40%);
+}
+[data-ambience="synth"] .env-light-shaft { opacity: 0.4; }
+
+/* Brown noise / deep focus — clean, minimal, calm */
+[data-ambience="brownNoise"] .env-base { opacity: 0.25; }
+[data-ambience="brownNoise"] .env-fog { opacity: 0.2; }
+[data-ambience="brownNoise"] .env-light-shaft { opacity: 0.15; }
+[data-ambience="brownNoise"] .noise-overlay { opacity: 0.006; }
+
+/* Campfire — warm, intimate */
+[data-ambience="campfire"] .env-base {
+  opacity: 0.45;
+  background:
+    radial-gradient(ellipse at 50% 60%, rgba(255,180,100,0.03) 0%, transparent 50%);
+}
+[data-ambience="campfire"] .env-fog { opacity: 0.35; }
+
+/* Silence — minimal, pure */
+[data-ambience="silence"] .env-base { opacity: 0.2; }
+[data-ambience="silence"] .env-fog { opacity: 0.15; }
+[data-ambience="silence"] .env-light-shaft { opacity: 0.1; }
+[data-ambience="silence"] .noise-overlay { opacity: 0.005; }
 
 /* ============================================
    ANIMATIONS

@@ -23,8 +23,8 @@ import { ParticleCanvas } from '@/components/ParticleCanvas';
 import { playSound, setSoundEnabled } from '@/lib/sounds';
 import { speak, initVoice } from '@/lib/voice';
 import { getGreetingPhrase } from '@/lib/contextualPhrases';
-import { startPresence, stopPresence, triggerReturningDialogue, setFocusMode, setAmbienceMode } from '@/lib/presence';
-import { getAtmosphere, applyAtmosphere } from '@/lib/atmosphere';
+import { startPresence, stopPresence, triggerReturningDialogue, triggerFocusDialogue, triggerRainDialogue, setFocusMode, setAmbienceMode } from '@/lib/presence';
+import { getAtmosphere, applyAtmosphere, getAmbienceModifier } from '@/lib/atmosphere';
 import { EVEChat } from '@/components/EVEChat';
 import { Command, Settings, MessageCircle } from 'lucide-react';
 
@@ -75,27 +75,31 @@ export default function EveApp() {
     setSoundEnabled(settings.soundEnabled);
   }, [settings.soundEnabled]);
 
-  // Atmosphere engine — update every minute
+  // Atmosphere engine — update every minute, reacts to time + ambience
   useEffect(() => {
     if (!mounted) return;
     const update = () => {
       const atmo = getAtmosphere();
-      applyAtmosphere(atmo);
+      const ambienceMod = getAmbienceModifier(settings.background);
+      applyAtmosphere({ ...atmo, ...ambienceMod });
     };
     update();
     atmosphereRef.current = setInterval(update, 60_000);
     return () => {
       if (atmosphereRef.current) clearInterval(atmosphereRef.current);
     };
-  }, [mounted]);
+  }, [mounted, settings.background]);
 
   // Focus mode integration — track when focus module is active
   useEffect(() => {
     const isFocus = activeModule === 'focus';
     setFocusMode(isFocus);
     document.documentElement.setAttribute('data-focus', isFocus ? 'active' : 'idle');
-    // Focus mode sound
-    if (isFocus) playSound('focusActivate');
+    if (isFocus) {
+      playSound('focusActivate');
+      // EVE acknowledges focus mode — softly, after a moment
+      setTimeout(() => triggerFocusDialogue(), 3000);
+    }
   }, [activeModule]);
 
   // Apply ALL settings to document
@@ -121,11 +125,16 @@ export default function EveApp() {
     root.setAttribute('data-particles', settings.particlesEnabled ? 'on' : 'off');
     root.style.setProperty('--particle-opacity', (settings.particleIntensity / 100 * 0.08).toFixed(3));
 
-    // Track ambience for rain reactivity
+    // Track ambience for environmental reactivity
     const isRain = settings.background === 'rain' || settings.background === 'rainyCity';
-    root.setAttribute('data-ambience', isRain ? 'rain' : 'normal');
+    root.setAttribute('data-ambience', settings.background || 'none');
     setAmbienceMode(settings.background);
-  }, [settings, mounted]);
+
+    // Rain dialogue — acknowledge the atmosphere change
+    if (isRain && workspaceReady) {
+      setTimeout(() => triggerRainDialogue(), 4000);
+    }
+  }, [settings, mounted, workspaceReady]);
 
   // Keyboard shortcuts
   useEffect(() => {
