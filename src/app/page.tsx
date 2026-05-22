@@ -16,12 +16,10 @@ import { JournalModule } from '@/modules/journal/JournalModule';
 import { BootScreen } from '@/components/BootScreen';
 import { PresenceScreen } from '@/components/PresenceScreen';
 import { CommandBar } from '@/components/CommandBar';
-import { StatusBadge } from '@/components/StatusBadge';
 import { SettingsPanel, defaultSettings, themeConfigs } from '@/components/SettingsPanel';
 import type { EVESettings } from '@/components/SettingsPanel';
 import { IdleMode } from '@/components/IdleMode';
 import { ParticleCanvas } from '@/components/ParticleCanvas';
-import { getStatusText } from '@/lib/contextualPhrases';
 import { playSound, setSoundEnabled } from '@/lib/sounds';
 import { speak, initVoice } from '@/lib/voice';
 import { getGreetingPhrase } from '@/lib/contextualPhrases';
@@ -253,53 +251,71 @@ export default function EveApp() {
       <div className="noise-overlay" />
 
       {workspaceReady && (
-        <div className="flex h-screen bg-background relative z-10">
-          <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
+        <div className="fixed inset-0 z-10">
+          {/* Sidebar — edge-triggered, environmental */}
+          {activeModule !== 'focus' && (
+            <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
+          )}
 
-          <main className="flex-1 overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-6 h-10 shrink-0">
-              <StatusBadge status={getStatusText(activeModule, false)} />
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { setCommandBarOpen(true); playSound('click'); }}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] text-muted hover:text-foreground hover:bg-surface-2/50 transition-all"
-                  onMouseEnter={() => playSound('hover')}
-                >
-                  <Command size={12} />
-                  <span className="hidden sm:inline">CTRL+K</span>
-                </button>
-                <button
-                  onClick={() => { setChatOpen(true); playSound('click'); }}
-                  className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-surface-2/50 transition-all"
-                  onMouseEnter={() => playSound('hover')}
-                >
-                  <MessageCircle size={14} />
-                </button>
-                <button
-                  onClick={() => { setSettingsOpen(true); playSound('click'); }}
-                  className="p-1.5 rounded-lg text-muted hover:text-foreground hover:bg-surface-2/50 transition-all"
-                  onMouseEnter={() => playSound('hover')}
-                >
-                  <Settings size={14} />
-                </button>
-              </div>
-            </div>
+          {/* Main content — full bleed, no dashboard framing */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeModule}
+              initial={{ opacity: 0, filter: 'blur(10px)' }}
+              animate={{ opacity: 1, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, filter: 'blur(10px)' }}
+              transition={{ duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
+              className="h-full overflow-y-auto"
+            >
+              <ActiveComponent />
+            </motion.div>
+          </AnimatePresence>
 
-            <div className="flex-1 overflow-hidden">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeModule}
-                  initial={{ opacity: 0, filter: 'blur(8px)' }}
-                  animate={{ opacity: 1, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, filter: 'blur(8px)' }}
-                  transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
-                  className="h-full overflow-y-auto"
-                >
-                  <ActiveComponent />
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </main>
+          {/* Floating bottom bar — minimal, ambient, cinematic */}
+          <div
+            className="fixed bottom-0 left-0 right-0 z-20 flex items-center justify-center pb-4 pointer-events-none"
+            style={{
+              background: 'linear-gradient(to top, rgba(18,16,26,0.3) 0%, transparent 100%)',
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 1 }}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-full pointer-events-auto"
+              style={{
+                background: 'rgba(18, 16, 26, 0.25)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid rgba(180, 120, 200, 0.04)',
+              }}
+            >
+              <button
+                onClick={() => { setCommandBarOpen(true); playSound('click'); }}
+                onMouseEnter={() => playSound('hover')}
+                className="p-2 rounded-full text-muted/30 hover:text-muted/60 transition-colors duration-300"
+                title="Command (Ctrl+K)"
+              >
+                <Command size={12} />
+              </button>
+              <button
+                onClick={() => { setChatOpen(true); playSound('click'); }}
+                onMouseEnter={() => playSound('hover')}
+                className="p-2 rounded-full text-muted/30 hover:text-muted/60 transition-colors duration-300"
+                title="Chat"
+              >
+                <MessageCircle size={12} />
+              </button>
+              <button
+                onClick={() => { setSettingsOpen(true); playSound('click'); }}
+                onMouseEnter={() => playSound('hover')}
+                className="p-2 rounded-full text-muted/30 hover:text-muted/60 transition-colors duration-300"
+                title="Settings"
+              >
+                <Settings size={12} />
+              </button>
+            </motion.div>
+          </div>
         </div>
       )}
 
