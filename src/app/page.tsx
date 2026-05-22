@@ -179,13 +179,10 @@ export default function EveApp() {
     setShowPresence(true);
     playSound('startup');
 
-    // Speak greeting after a moment
+    // Initialize voice — PresenceScreen handles greeting delivery
     if (settings.soundEnabled && !voiceSpokenRef.current) {
       voiceSpokenRef.current = true;
-      setTimeout(() => {
-        initVoice();
-        setTimeout(() => speak(getGreetingPhrase()), 500);
-      }, 2000);
+      setTimeout(() => initVoice(), 1000);
     }
   }, [settings.soundEnabled]);
 
