@@ -8,6 +8,7 @@ import {
   Radio, Waves, Globe, Music, Moon, Building,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getTimeOfDay } from '@/lib/atmosphere';
 
 export type AmbientSound =
   | 'rain' | 'thunderstorm' | 'fireplace' | 'cafe'
@@ -33,15 +34,20 @@ const sounds: SoundConfig[] = [
   { id: 'lofi', label: 'Lo-fi', icon: <Music size={16} />, color: '#00e5c8' },
 ];
 
-// ─── Audio Engine (singleton) ───────────────────────────────────
+// ─── Audio Engine — Enhanced with crossfade, spatial, layers ────
 
 class AudioEngine {
   private ctx: AudioContext | null = null;
-  private source: AudioBufferSourceNode | null = null;
-  private gain: GainNode | null = null;
   private activeSound: AmbientSound | null = null;
   private currentVolume = 0.3;
-  private fadeTime = 0.8;
+  private fadeTime = 1.5; // slower, cinematic crossfade
+
+  // Active audio nodes for cleanup
+  private activeNodes: { source: AudioBufferSourceNode; gain: GainNode; pan?: StereoPannerNode }[] = [];
+
+  // Heartbeat
+  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private heartbeatEnabled = false;
 
   private getCtx(): AudioContext {
     if (!this.ctx || this.ctx.state === 'closed') {
@@ -56,153 +62,245 @@ class AudioEngine {
   private createNoiseBuffer(type: 'white' | 'brown' | 'pink'): AudioBuffer {
     const ctx = this.getCtx();
     const sampleRate = ctx.sampleRate;
-    const length = sampleRate * 3;
-    const buffer = ctx.createBuffer(1, length, sampleRate);
-    const data = buffer.getChannelData(0);
+    const length = sampleRate * 4; // 4 second buffer for smoother loops
+    const buffer = ctx.createBuffer(2, length, sampleRate); // Stereo
 
-    if (type === 'white') {
-      for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
-    } else if (type === 'brown') {
-      let last = 0;
-      for (let i = 0; i < length; i++) {
-        const w = Math.random() * 2 - 1;
-        data[i] = (last + 0.02 * w) / 1.02;
-        last = data[i];
-        data[i] *= 3.5;
-      }
-    } else if (type === 'pink') {
-      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-      for (let i = 0; i < length; i++) {
-        const w = Math.random() * 2 - 1;
-        b0 = 0.99886 * b0 + w * 0.0555179;
-        b1 = 0.99332 * b1 + w * 0.0750759;
-        b2 = 0.96900 * b2 + w * 0.1538520;
-        b3 = 0.86650 * b3 + w * 0.3104856;
-        b4 = 0.55000 * b4 + w * 0.5329522;
-        b5 = -0.7616 * b5 - w * 0.0168980;
-        data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362;
-        data[i] *= 0.11;
-        b6 = w * 0.115926;
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buffer.getChannelData(ch);
+      if (type === 'white') {
+        for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+      } else if (type === 'brown') {
+        let last = 0;
+        for (let i = 0; i < length; i++) {
+          const w = Math.random() * 2 - 1;
+          data[i] = (last + 0.02 * w) / 1.02;
+          last = data[i];
+          data[i] *= 3.5;
+        }
+      } else if (type === 'pink') {
+        let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+        for (let i = 0; i < length; i++) {
+          const w = Math.random() * 2 - 1;
+          b0 = 0.99886 * b0 + w * 0.0555179;
+          b1 = 0.99332 * b1 + w * 0.0750759;
+          b2 = 0.96900 * b2 + w * 0.1538520;
+          b3 = 0.86650 * b3 + w * 0.3104856;
+          b4 = 0.55000 * b4 + w * 0.5329522;
+          b5 = -0.7616 * b5 - w * 0.0168980;
+          data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362;
+          data[i] *= 0.11;
+          b6 = w * 0.115926;
+        }
       }
     }
     return buffer;
   }
 
-  private buildChain(sound: AmbientSound): { source: AudioBufferSourceNode; lastNode: AudioNode } {
+  private getTimeVolume(): number {
+    const tod = getTimeOfDay();
+    switch (tod) {
+      case 'lateNight': return 0.65; // quieter at night
+      case 'evening': return 0.85;
+      default: return 1.0;
+    }
+  }
+
+  private buildChain(sound: AmbientSound): { source: AudioBufferSourceNode; lastNode: AudioNode }[] {
     const ctx = this.getCtx();
-    const source = ctx.createBufferSource();
-    source.loop = true;
+    const layers: { source: AudioBufferSourceNode; lastNode: AudioNode }[] = [];
 
     switch (sound) {
       case 'rain': {
-        source.buffer = this.createNoiseBuffer('pink');
+        // Layer 1: Main rain (pink noise, filtered)
+        const s1 = ctx.createBufferSource(); s1.loop = true;
+        s1.buffer = this.createNoiseBuffer('pink');
         const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 800;
-        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 8000;
-        source.connect(hp); hp.connect(lp);
-        return { source, lastNode: lp };
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000;
+        s1.connect(hp); hp.connect(lp);
+        layers.push({ source: s1, lastNode: lp });
+
+        // Layer 2: Distant low rumble
+        const s2 = ctx.createBufferSource(); s2.loop = true;
+        s2.buffer = this.createNoiseBuffer('brown');
+        const lp2 = ctx.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 300;
+        const g2 = ctx.createGain(); g2.gain.value = 0.15;
+        s2.connect(lp2); lp2.connect(g2);
+        layers.push({ source: s2, lastNode: g2 });
+        break;
       }
       case 'thunderstorm': {
-        source.buffer = this.createNoiseBuffer('pink');
+        const s1 = ctx.createBufferSource(); s1.loop = true;
+        s1.buffer = this.createNoiseBuffer('pink');
         const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 100;
         const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2000;
-        source.connect(hp); hp.connect(lp);
-        return { source, lastNode: lp };
+        s1.connect(hp); hp.connect(lp);
+        layers.push({ source: s1, lastNode: lp });
+
+        // Deep rumble layer
+        const s2 = ctx.createBufferSource(); s2.loop = true;
+        s2.buffer = this.createNoiseBuffer('brown');
+        const lp2 = ctx.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 200;
+        const g2 = ctx.createGain(); g2.gain.value = 0.25;
+        s2.connect(lp2); lp2.connect(g2);
+        layers.push({ source: s2, lastNode: g2 });
+        break;
       }
       case 'fireplace': {
-        source.buffer = this.createNoiseBuffer('brown');
+        const s1 = ctx.createBufferSource(); s1.loop = true;
+        s1.buffer = this.createNoiseBuffer('brown');
         const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 400; bp.Q.value = 0.5;
-        source.connect(bp);
-        return { source, lastNode: bp };
+        s1.connect(bp);
+        layers.push({ source: s1, lastNode: bp });
+
+        // Crackling layer
+        const s2 = ctx.createBufferSource(); s2.loop = true;
+        s2.buffer = this.createNoiseBuffer('white');
+        const bp2 = ctx.createBiquadFilter(); bp2.type = 'bandpass'; bp2.frequency.value = 3000; bp2.Q.value = 1.5;
+        const g2 = ctx.createGain(); g2.gain.value = 0.04;
+        s2.connect(bp2); bp2.connect(g2);
+        layers.push({ source: s2, lastNode: g2 });
+        break;
       }
       case 'cafe': {
-        source.buffer = this.createNoiseBuffer('brown');
+        const s1 = ctx.createBufferSource(); s1.loop = true;
+        s1.buffer = this.createNoiseBuffer('brown');
         const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3000;
-        source.connect(lp);
-        return { source, lastNode: lp };
+        s1.connect(lp);
+        layers.push({ source: s1, lastNode: lp });
+        break;
       }
       case 'whiteNoise': {
-        source.buffer = this.createNoiseBuffer('white');
-        return { source, lastNode: source };
+        const s1 = ctx.createBufferSource(); s1.loop = true;
+        s1.buffer = this.createNoiseBuffer('white');
+        layers.push({ source: s1, lastNode: s1 });
+        break;
       }
       case 'brownNoise': {
-        source.buffer = this.createNoiseBuffer('brown');
+        const s1 = ctx.createBufferSource(); s1.loop = true;
+        s1.buffer = this.createNoiseBuffer('brown');
         const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1200;
-        source.connect(lp);
-        return { source, lastNode: lp };
+        s1.connect(lp);
+        layers.push({ source: s1, lastNode: lp });
+        break;
       }
       case 'space': {
-        source.buffer = this.createNoiseBuffer('pink');
-        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 500;
-        source.connect(lp);
-        return { source, lastNode: lp };
+        // Deep space — pink noise through very low filter + subtle oscillator pad
+        const s1 = ctx.createBufferSource(); s1.loop = true;
+        s1.buffer = this.createNoiseBuffer('pink');
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 400;
+        s1.connect(lp);
+        layers.push({ source: s1, lastNode: lp });
+
+        // Subtle drone
+        const osc = ctx.createOscillator();
+        osc.type = 'sine'; osc.frequency.value = 55;
+        const g = ctx.createGain(); g.gain.value = 0.02;
+        osc.connect(g);
+        // @ts-ignore — oscillator reuse is fine for drone
+        layers.push({ source: osc as any, lastNode: g });
+        break;
       }
       case 'softSynth': {
-        source.buffer = this.createNoiseBuffer('pink');
+        // Cinematic synth pad — filtered pink noise + harmonic oscillators
+        const s1 = ctx.createBufferSource(); s1.loop = true;
+        s1.buffer = this.createNoiseBuffer('pink');
         const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 300; bp.Q.value = 2;
         const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 800;
-        source.connect(bp); bp.connect(lp);
-        return { source, lastNode: lp };
+        s1.connect(bp); bp.connect(lp);
+        layers.push({ source: s1, lastNode: lp });
+
+        // Harmonic layer — soft chord
+        for (const freq of [110, 165, 220]) {
+          const osc = ctx.createOscillator();
+          osc.type = 'sine'; osc.frequency.value = freq;
+          const g = ctx.createGain(); g.gain.value = 0.008;
+          osc.connect(g);
+          layers.push({ source: osc as any, lastNode: g });
+        }
+        break;
       }
       case 'distantCity': {
-        source.buffer = this.createNoiseBuffer('brown');
+        const s1 = ctx.createBufferSource(); s1.loop = true;
+        s1.buffer = this.createNoiseBuffer('brown');
         const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 600;
         const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 80;
-        source.connect(hp); hp.connect(lp);
-        return { source, lastNode: lp };
+        s1.connect(hp); hp.connect(lp);
+        layers.push({ source: s1, lastNode: lp });
+        break;
       }
       case 'lofi': {
-        source.buffer = this.createNoiseBuffer('brown');
+        const s1 = ctx.createBufferSource(); s1.loop = true;
+        s1.buffer = this.createNoiseBuffer('brown');
         const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2500;
         const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 200;
-        source.connect(hp); hp.connect(lp);
-        return { source, lastNode: lp };
+        s1.connect(hp); hp.connect(lp);
+        layers.push({ source: s1, lastNode: lp });
+        break;
       }
       default: {
-        source.buffer = this.createNoiseBuffer('white');
-        return { source, lastNode: source };
+        const s1 = ctx.createBufferSource(); s1.loop = true;
+        s1.buffer = this.createNoiseBuffer('white');
+        layers.push({ source: s1, lastNode: s1 });
       }
     }
+
+    return layers;
   }
 
   play(sound: AmbientSound, volume: number) {
     this.stop();
     const ctx = this.getCtx();
-    const { source, lastNode } = this.buildChain(sound);
+    const layers = this.buildChain(sound);
+    const timeVol = this.getTimeVolume();
 
-    const gain = ctx.createGain();
-    gain.gain.value = 0; // Start at 0 for fade-in
-    lastNode.connect(gain);
-    gain.connect(ctx.destination);
+    for (const layer of layers) {
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
 
-    // Fade in
-    gain.gain.setTargetAtTime(volume, ctx.currentTime, this.fadeTime * 0.3);
+      // Stereo spatial panning — subtle random positioning for depth
+      const pan = ctx.createStereoPanner();
+      pan.pan.value = (Math.random() - 0.5) * 0.3; // subtle L/R offset
 
-    source.start();
-    this.source = source;
-    this.gain = gain;
+      layer.lastNode.connect(pan);
+      pan.connect(gain);
+      gain.connect(ctx.destination);
+
+      // Cinematic fade-in
+      const finalVol = volume * timeVol;
+      gain.gain.setTargetAtTime(finalVol, ctx.currentTime, this.fadeTime * 0.3);
+
+      layer.source.start();
+      this.activeNodes.push({ source: layer.source, gain, pan });
+    }
+
     this.activeSound = sound;
     this.currentVolume = volume;
   }
 
   stop() {
-    if (this.gain && this.ctx && this.ctx.state !== 'closed') {
-      // Fade out
-      this.gain.gain.setTargetAtTime(0, this.ctx.currentTime, this.fadeTime * 0.3);
-      const src = this.source;
-      const ctx = this.ctx;
-      setTimeout(() => {
-        try { src?.stop(); src?.disconnect(); } catch {}
-      }, this.fadeTime * 1000);
+    const ctx = this.ctx;
+    if (ctx && ctx.state !== 'closed') {
+      for (const node of this.activeNodes) {
+        // Cinematic fade-out
+        node.gain.gain.setTargetAtTime(0, ctx.currentTime, this.fadeTime * 0.3);
+        const src = node.source;
+        setTimeout(() => {
+          try { src.stop(); src.disconnect(); } catch {}
+        }, this.fadeTime * 1000);
+      }
     }
-    this.source = null;
-    this.gain = null;
+    this.activeNodes = [];
     this.activeSound = null;
   }
 
   setVolume(volume: number) {
     this.currentVolume = volume;
-    if (this.gain && this.ctx && this.ctx.state !== 'closed') {
-      this.gain.gain.setTargetAtTime(volume, this.ctx.currentTime, 0.1);
+    const ctx = this.ctx;
+    if (ctx && ctx.state !== 'closed') {
+      const timeVol = this.getTimeVolume();
+      for (const node of this.activeNodes) {
+        node.gain.gain.setTargetAtTime(volume * timeVol, ctx.currentTime, 0.3);
+      }
     }
   }
 
@@ -212,6 +310,50 @@ class AudioEngine {
 
   isPlaying(): boolean {
     return this.activeSound !== null;
+  }
+
+  // ─── Heartbeat Audio — almost subconscious low pulse ─────────
+
+  startHeartbeat() {
+    if (this.heartbeatEnabled) return;
+    this.heartbeatEnabled = true;
+
+    const beat = () => {
+      if (!this.heartbeatEnabled) return;
+      const ctx = this.getCtx();
+      if (ctx.state === 'closed') return;
+
+      const tod = getTimeOfDay();
+      const bpm = tod === 'lateNight' ? 50 : tod === 'evening' ? 55 : 60;
+      const interval = (60 / bpm) * 1000;
+
+      // Very subtle low-frequency pulse
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = 40; // sub-bass
+
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      gain.gain.setTargetAtTime(0.008, ctx.currentTime, 0.05); // barely audible
+      gain.gain.setTargetAtTime(0, ctx.currentTime + 0.15, 0.08);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+
+      this.heartbeatInterval = setTimeout(beat, interval);
+    };
+
+    beat();
+  }
+
+  stopHeartbeat() {
+    this.heartbeatEnabled = false;
+    if (this.heartbeatInterval) {
+      clearTimeout(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
   }
 }
 
@@ -230,7 +372,6 @@ export function AmbientAudio({ className, compact = false }: AmbientAudioProps) 
   const [volume, setVolume] = useState(0.3);
   const [showPanel, setShowPanel] = useState(false);
 
-  // Sync from engine on mount
   useEffect(() => {
     const existing = engine.getActive();
     if (existing) setActiveSound(existing);
@@ -256,7 +397,6 @@ export function AmbientAudio({ className, compact = false }: AmbientAudioProps) 
     setActiveSound(null);
   }, []);
 
-  // Close panel on outside click
   useEffect(() => {
     if (!showPanel) return;
     const handler = (e: MouseEvent) => {
@@ -331,7 +471,6 @@ export function AmbientAudio({ className, compact = false }: AmbientAudioProps) 
     );
   }
 
-  // Full mode
   return (
     <div className={cn('space-y-3', className)}>
       <div className="flex items-center justify-between">
@@ -379,5 +518,4 @@ export function AmbientAudio({ className, compact = false }: AmbientAudioProps) 
   );
 }
 
-// Export engine for use by other components
 export { engine as ambientEngine };

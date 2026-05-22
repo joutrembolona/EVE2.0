@@ -27,6 +27,7 @@ import { startPresence, stopPresence, triggerReturningDialogue, triggerFocusDial
 import { recordAmbience } from '@/lib/memory';
 import { getAtmosphere, applyAtmosphere, getAmbienceModifier } from '@/lib/atmosphere';
 import { EVEChat } from '@/components/EVEChat';
+import { ambientEngine } from '@/components/focus/AmbientAudio';
 import { Command, Settings, MessageCircle } from 'lucide-react';
 
 const moduleComponents: Record<string, React.ComponentType> = {
@@ -200,6 +201,8 @@ export default function EveApp() {
     setTimeout(() => setWorkspaceReady(true), 800);
     playSound('transition');
     startPresence();
+    // Start heartbeat audio — subtle, almost subconscious
+    setTimeout(() => ambientEngine.startHeartbeat(), 2000);
   }, []);
 
   const handleSettingsChange = useCallback((newSettings: EVESettings) => {
