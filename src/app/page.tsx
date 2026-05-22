@@ -24,6 +24,7 @@ import { playSound, setSoundEnabled } from '@/lib/sounds';
 import { speak, initVoice } from '@/lib/voice';
 import { getGreetingPhrase } from '@/lib/contextualPhrases';
 import { startPresence, stopPresence, triggerReturningDialogue, triggerFocusDialogue, triggerRainDialogue, setFocusMode, setAmbienceMode } from '@/lib/presence';
+import { recordAmbience } from '@/lib/memory';
 import { getAtmosphere, applyAtmosphere, getAmbienceModifier } from '@/lib/atmosphere';
 import { EVEChat } from '@/components/EVEChat';
 import { Command, Settings, MessageCircle } from 'lucide-react';
@@ -129,6 +130,7 @@ export default function EveApp() {
     const isRain = settings.background === 'rain' || settings.background === 'rainyCity';
     root.setAttribute('data-ambience', settings.background || 'none');
     setAmbienceMode(settings.background);
+    recordAmbience(settings.background);
 
     // Rain dialogue — acknowledge the atmosphere change
     if (isRain && workspaceReady) {

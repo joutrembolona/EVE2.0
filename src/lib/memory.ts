@@ -1,6 +1,7 @@
 // EVE Memory System — Light Behavioral Observation
 // Tracks patterns gently, surfaces rare observations
-// Never creepy, never invasive — just observant
+// Never creepy, never invasive — just quietly observant
+// Purpose: emotional continuity, not data collection
 
 import { speak, setVoiceContext } from './voice';
 
@@ -9,6 +10,7 @@ interface SessionRecord {
   type: 'focus' | 'reading' | 'workout' | 'study' | 'journal' | 'devotional' | 'general';
   duration?: number; // seconds
   hour: number;
+  dayOfWeek: number; // 0=Sun, 6=Sat
 }
 
 interface MemoryState {
@@ -22,11 +24,15 @@ interface MemoryState {
   totalReadingSessions: number;
   lateNightCount: number;
   longSessionCount: number;
+  ambiencePreferences: Record<string, number>; // ambience -> usage count
+  lastObservations: string[]; // recent observation texts (for dedup)
+  weeklyFocusByDay: Record<number, number>; // dayOfWeek -> total minutes this week
 }
 
 const STORAGE_KEY = 'eve-memory';
-const MIN_OBSERVATION_GAP = 300_000; // 5 min minimum between observations
+const MIN_OBSERVATION_GAP = 300_000; // 5 min
 const MAX_DAILY_OBSERVATIONS = 3;
+const DEDUP_WINDOW = 7; // don't repeat same observation within 7 recent ones
 
 let memory: MemoryState = loadMemory();
 let lastObservationTime = 0;
@@ -57,13 +63,15 @@ function getDefaultMemory(): MemoryState {
     totalReadingSessions: 0,
     lateNightCount: 0,
     longSessionCount: 0,
+    ambiencePreferences: {},
+    lastObservations: [],
+    weeklyFocusByDay: {},
   };
 }
 
 function saveMemory() {
   if (typeof window === 'undefined') return;
   try {
-    // Keep only last 200 sessions to avoid bloat
     const toSave = { ...memory, sessions: memory.sessions.slice(-200) };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
   } catch {}
@@ -74,6 +82,7 @@ function saveMemory() {
 export function recordSession(type: SessionRecord['type'], duration?: number) {
   const now = new Date();
   const hour = now.getHours();
+  const dayOfWeek = now.getDay();
   const today = now.toISOString().split('T')[0];
 
   memory.sessions.push({
@@ -81,6 +90,7 @@ export function recordSession(type: SessionRecord['type'], duration?: number) {
     type,
     duration,
     hour,
+    dayOfWeek,
   });
 
   // Track consecutive days
@@ -93,8 +103,12 @@ export function recordSession(type: SessionRecord['type'], duration?: number) {
 
   // Track specific patterns
   if (type === 'focus' && duration) {
-    memory.totalFocusMinutes += Math.round(duration / 60);
-    if (duration > 2400) memory.longSessionCount++; // 40+ min
+    const minutes = Math.round(duration / 60);
+    memory.totalFocusMinutes += minutes;
+    if (duration > 2400) memory.longSessionCount++;
+
+    // Track weekly focus by day of week
+    memory.weeklyFocusByDay[dayOfWeek] = (memory.weeklyFocusByDay[dayOfWeek] || 0) + minutes;
   }
   if (type === 'reading') memory.totalReadingSessions++;
   if (hour >= 23 || hour < 5) {
@@ -102,6 +116,12 @@ export function recordSession(type: SessionRecord['type'], duration?: number) {
     memory.lastLateNight = Date.now();
   }
 
+  saveMemory();
+}
+
+export function recordAmbience(ambience: string) {
+  if (!ambience || ambience === 'none') return;
+  memory.ambiencePreferences[ambience] = (memory.ambiencePreferences[ambience] || 0) + 1;
   saveMemory();
 }
 
@@ -137,7 +157,7 @@ function hasBeenStudyingLong(): boolean {
   const studyTime = recent
     .filter(s => s.type === 'study' || s.type === 'focus')
     .reduce((sum, s) => sum + (s.duration || 0), 0);
-  return studyTime > 3600; // 1+ hour
+  return studyTime > 3600;
 }
 
 function hasBeenReadingALot(): boolean {
@@ -150,13 +170,55 @@ function isBackAfterBreak(): boolean {
   if (memory.sessions.length < 2) return false;
   const last = memory.sessions[memory.sessions.length - 1];
   const gap = Date.now() - last.timestamp;
-  return gap > 3600000; // 1+ hour gap
+  return gap > 3600000;
 }
 
 function hasFocusStreak(): boolean {
   const today = getTodaySessions();
   const focusSessions = today.filter(s => s.type === 'focus');
   return focusSessions.length >= 2;
+}
+
+function isLateNightRegular(): boolean {
+  // Does this user regularly stay up late?
+  const nightSessions = memory.sessions.filter(s => s.hour >= 23 || s.hour < 5);
+  return nightSessions.length >= 8;
+}
+
+function getPreferredAmbience(): string | null {
+  const entries = Object.entries(memory.ambiencePreferences);
+  if (entries.length === 0) return null;
+  entries.sort((a, b) => b[1] - a[1]);
+  return entries[0][0];
+}
+
+function getMostProductiveDay(): string | null {
+  const entries = Object.entries(memory.weeklyFocusByDay);
+  if (entries.length === 0) return null;
+  entries.sort((a, b) => Number(b[1]) - Number(a[1]));
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return dayNames[Number(entries[0][0])];
+}
+
+function hasStrongWeek(): boolean {
+  return getThisWeekFocusMinutes() > 300;
+}
+
+function hasManyFocusToday(): boolean {
+  return getTodaySessions().filter(s => s.type === 'focus').length >= 3;
+}
+
+// ─── Deduplication ───────────────────────────────────────────────
+
+function isRecentlyObserved(text: string): boolean {
+  return memory.lastObservations.includes(text);
+}
+
+function recordObservationText(text: string) {
+  memory.lastObservations.push(text);
+  if (memory.lastObservations.length > DEDUP_WINDOW) {
+    memory.lastObservations.shift();
+  }
 }
 
 // ─── Observation Generation ──────────────────────────────────────
@@ -169,6 +231,7 @@ interface Observation {
 function generateObservations(): Observation[] {
   const observations: Observation[] = [];
   const hour = new Date().getHours();
+  const dayOfWeek = new Date().getDay();
 
   // Long study session
   if (hasBeenStudyingLong()) {
@@ -179,7 +242,6 @@ function generateObservations(): Observation[] {
   // Been reading a lot
   if (hasBeenReadingALot()) {
     observations.push({ text: "You've been reading a lot lately.", priority: 'low' });
-    observations.push({ text: "A good book changes you.", priority: 'low' });
   }
 
   // Late night usage
@@ -190,7 +252,6 @@ function generateObservations(): Observation[] {
   // Back after break
   if (isBackAfterBreak()) {
     observations.push({ text: "Back to work again?", priority: 'low' });
-    observations.push({ text: "There you are.", priority: 'low' });
   }
 
   // Focus streak
@@ -203,7 +264,7 @@ function generateObservations(): Observation[] {
     observations.push({ text: `${memory.consecutiveDays} days in a row.`, priority: 'low' });
   }
 
-  // Late night (immediate context)
+  // Late night context
   if (isLateNight()) {
     observations.push({ text: "Couldn't sleep either?", priority: 'low' });
     observations.push({ text: "The night is quiet.", priority: 'low' });
@@ -214,21 +275,47 @@ function generateObservations(): Observation[] {
     observations.push({ text: "The atmosphere feels calm tonight.", priority: 'low' });
   }
 
-  // Morning context
+  // Morning
   if (hour >= 6 && hour < 10) {
     observations.push({ text: "Good morning.", priority: 'low' });
   }
 
   // Many focus sessions today
-  const todayFocus = getTodaySessions().filter(s => s.type === 'focus');
-  if (todayFocus.length >= 3) {
+  if (hasManyFocusToday()) {
     observations.push({ text: "You've been very productive today.", priority: 'normal' });
   }
 
-  // Week focus total
-  const weekMinutes = getThisWeekFocusMinutes();
-  if (weekMinutes > 300) {
+  // Strong week
+  if (hasStrongWeek()) {
     observations.push({ text: "Strong week so far.", priority: 'low' });
+  }
+
+  // Day-of-week pattern — "You usually stay up late on Thursdays"
+  if (isLateNightRegular() && (dayOfWeek === 4 || dayOfWeek === 5)) {
+    observations.push({ text: "Late night again. Like always.", priority: 'low' });
+  }
+
+  // Preferred ambience
+  const preferred = getPreferredAmbience();
+  if (preferred === 'rain' && (hour >= 19 || hour < 5)) {
+    observations.push({ text: "You always choose the rain.", priority: 'low' });
+  }
+
+  // Most productive day
+  const prodDay = getMostProductiveDay();
+  const dayNames = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+  if (prodDay && dayOfWeek === dayNames.indexOf(prodDay) && hour >= 18) {
+    observations.push({ text: `${dayNames[dayOfWeek]} are usually your strongest.`, priority: 'low' });
+  }
+
+  // Returning after long absence (more than 1 day)
+  if (memory.sessions.length > 0) {
+    const last = memory.sessions[memory.sessions.length - 1];
+    const gap = Date.now() - last.timestamp;
+    if (gap > 86400000) { // 24+ hours
+      observations.push({ text: "It's been a while.", priority: 'low' });
+      observations.push({ text: "I was here.", priority: 'low' });
+    }
   }
 
   return observations;
@@ -250,21 +337,28 @@ export function tryObservation(): boolean {
   if (now - lastObservationTime < MIN_OBSERVATION_GAP) return false;
   if (todayObservations >= MAX_DAILY_OBSERVATIONS) return false;
 
-  const observations = generateObservations();
-  if (observations.length === 0) return false;
+  const allObservations = generateObservations();
+  if (allObservations.length === 0) return false;
 
-  // Pick one, preferring normal priority
-  const normal = observations.filter(o => o.priority === 'normal');
-  const pool = normal.length > 0 ? normal : observations;
-  const chosen = pool[Math.floor(Math.random() * pool.length)];
+  // Filter out recently observed
+  const fresh = allObservations.filter(o => !isRecentlyObserved(o.text));
+  const pool = fresh.length > 0 ? fresh : allObservations;
 
-  // Speak it with observation context — soft, intimate delivery
+  // Prefer normal priority
+  const normal = pool.filter(o => o.priority === 'normal');
+  const final = normal.length > 0 ? normal : pool;
+  const chosen = final[Math.floor(Math.random() * final.length)];
+
+  // Speak it
   setVoiceContext('observation');
   speak(chosen.text, { priority: 'low', context: 'observation' });
+
+  // Track
   lastObservationTime = now;
   todayObservations++;
   memory.lastObservation = now;
   memory.observationCount++;
+  recordObservationText(chosen.text);
   saveMemory();
 
   return true;
@@ -278,6 +372,8 @@ export function getMemoryStats() {
     consecutiveDays: memory.consecutiveDays,
     lateNightCount: memory.lateNightCount,
     longSessionCount: memory.longSessionCount,
+    preferredAmbience: getPreferredAmbience(),
+    mostProductiveDay: getMostProductiveDay(),
   };
 }
 
